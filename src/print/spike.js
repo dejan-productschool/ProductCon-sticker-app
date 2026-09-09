@@ -22,7 +22,7 @@ import { dirname, join } from 'node:path';
 import { CANVAS, STICKER_MM, DPI, SAFE_INSET, mmToPx, PRINT_SECONDS } from '../compose/constants.js';
 import { PALETTE as P } from '../compose/brand.js';
 import { fitText, textToSvg } from '../compose/typeset.js';
-import { printSticker, printMode, listPrinters, PRINTER_NAME } from './printer.js';
+import { printSticker, printMode, listPrinters, printerName } from './printer.js';
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '../../out');
 
@@ -128,8 +128,17 @@ export function targetSvg() {
 async function main() {
   const args = process.argv.slice(2);
   const dry = args.includes('--dry');
-  const printerArg = args[args.indexOf('--printer') + 1];
-  if (args.includes('--printer') && printerArg) process.env.STICKER_PRINTER = printerArg;
+
+  // npm strips the quotes from `npm run spike -- --printer "Brother VC-500W"`,
+  // so the name arrives as several argv entries. Take everything up to the next
+  // flag, not just the next word.
+  const at = args.indexOf('--printer');
+  if (at !== -1) {
+    const rest = args.slice(at + 1);
+    const end = rest.findIndex((a) => a.startsWith('--'));
+    const name = (end === -1 ? rest : rest.slice(0, end)).join(' ').trim();
+    if (name) process.env.STICKER_PRINTER = name;
+  }
   if (dry) process.env.STICKER_PRINT_MODE = 'dry';
 
   await mkdir(OUT, { recursive: true });
@@ -145,10 +154,24 @@ async function main() {
   console.log(`target      ${path}`);
   console.log(`pixels      ${meta.width} x ${meta.height}, ${meta.density} dpi, ${meta.space}`);
   console.log(`physical    ${STICKER_MM} x ${STICKER_MM} mm`);
-  console.log(`mode        ${printMode()}${PRINTER_NAME ? ` -> "${PRINTER_NAME}"` : ' (default printer)'}`);
+  console.log(`mode        ${printMode()}${printerName() ? ` -> "${printerName()}"` : ' (system default printer)'}`);
 
   const printers = await listPrinters();
   console.log(`visible     ${printers.length ? printers.join(', ') : 'none'}`);
+
+  if (!dry && printers.length === 0) {
+    console.log(`
+No printer is set up on this machine, so there is nothing to send to.
+
+Connect the VC-500W, add it in ${process.platform === 'win32'
+      ? 'Settings > Bluetooth & devices > Printers & scanners'
+      : 'System Settings > Printers & Scanners'}, then run this again.
+
+Until then, \`npm run spike -- --dry\` renders out/print-spike-target.png so you
+can check the target itself.`);
+    process.exitCode = 1;
+    return;
+  }
 
   if (printMode() === 'dry') {
     console.log('\nDry run, nothing sent. Drop --dry with the VC-500W connected.');

@@ -29,7 +29,14 @@ export function printMode() {
   return 'dry';
 }
 
-export const PRINTER_NAME = process.env.STICKER_PRINTER ?? '';
+/**
+ * Read at call time, never captured at import.
+ *
+ * As a module-level const this silently ignored anything that set
+ * STICKER_PRINTER after the first import - which is exactly what `--printer`
+ * does - and fell back to the system default without saying so.
+ */
+export const printerName = () => process.env.STICKER_PRINTER ?? '';
 
 async function tempPng(png) {
   const dir = join(tmpdir(), 'ship-it-stickers');
@@ -69,13 +76,28 @@ export async function listPrinters() {
  * caller can decide whether to retry. Nothing here retries on its own: a
  * silent retry at a booth means two stickers coming out for one person.
  */
-export async function printSticker(png, { widthMm = STICKER_MM, heightMm = STICKER_MM, copies = 1 } = {}) {
+export async function printSticker(png, {
+  widthMm = STICKER_MM, heightMm = STICKER_MM, copies = 1, printer = printerName(),
+} = {}) {
   const mode = printMode();
   const started = Date.now();
   const path = await tempPng(png);
 
   if (mode === 'dry') {
     return { ok: true, ms: Date.now() - started, mode, detail: `dry run, wrote ${path}` };
+  }
+
+  // Say "there is no printer" rather than surfacing the driver's version of it.
+  // On the day this message is read by a volunteer, not by whoever wrote this.
+  const available = await listPrinters();
+  if (available.length === 0) {
+    throw new Error(
+      'no printers are set up on this machine. Connect the VC-500W and add it in ' +
+      (mode === 'windows' ? 'Settings > Bluetooth & devices > Printers & scanners' : 'System Settings > Printers & Scanners')
+    );
+  }
+  if (printer && !available.includes(printer)) {
+    throw new Error(`no printer named "${printer}". Available: ${available.join(', ')}`);
   }
 
   if (mode === 'windows') {
@@ -86,14 +108,14 @@ export async function printSticker(png, { widthMm = STICKER_MM, heightMm = STICK
       '-HeightMm', String(heightMm),
       '-Copies', String(copies),
     ];
-    if (PRINTER_NAME) args.push('-PrinterName', PRINTER_NAME);
+    if (printer) args.push('-PrinterName', printer);
     const { stdout, stderr } = await run('powershell', args, { timeout: 60_000 });
     return { ok: true, ms: Date.now() - started, mode, detail: (stdout || stderr).trim() };
   }
 
   // macOS, for building and rehearsing away from the booth machine.
   const args = ['-o', `media=Custom.${widthMm}x${heightMm}mm`, '-o', 'fit-to-page', '-n', String(copies)];
-  if (PRINTER_NAME) args.unshift('-d', PRINTER_NAME);
+  if (printer) args.unshift('-d', printer);
   const { stdout } = await run('lp', [...args, path], { timeout: 60_000 });
   return { ok: true, ms: Date.now() - started, mode, detail: stdout.trim() };
 }

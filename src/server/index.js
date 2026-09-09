@@ -12,7 +12,7 @@ import { sanitise, MAX_CHARS } from '../compose/sanitise.js';
 import { getTemplate, TEMPLATES } from '../compose/templates.js';
 import { CANVAS, PRINT_SECONDS } from '../compose/constants.js';
 import { USING_PLACEHOLDER_LOCKUP } from '../compose/brand.js';
-import { printSticker, printMode, listPrinters, PRINTER_NAME } from '../print/printer.js';
+import { printSticker, printMode, listPrinters, printerName } from '../print/printer.js';
 import * as store from './db.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -204,7 +204,7 @@ async function pump() {
 app.get('/api/health', async (req, res) => {
   res.json({
     printer: printerHealth,
-    printerName: PRINTER_NAME || '(system default)',
+    printerName: printerName() || '(system default)',
     visiblePrinters: await listPrinters(),
     counts: store.statusCounts(),
     placeholderBrand: USING_PLACEHOLDER_LOCKUP,
@@ -228,7 +228,7 @@ app.listen(PORT, () => {
   approve  http://localhost:${PORT}/approve/${lan ? `   (tablet: http://${lan}:${PORT}/approve/)` : ''}
   wall     http://localhost:${PORT}/wall/
 
-  printer  ${printMode()}${PRINTER_NAME ? ` -> "${PRINTER_NAME}"` : ' (system default)'}
+  printer  ${printMode()}${printerName() ? ` -> "${printerName()}"` : ' (system default)'}
   prompt   "${PROMPT}"
   limit    ${MAX_CHARS} characters${USING_PLACEHOLDER_LOCKUP ? '\n\n  ! Brand assets are placeholders. See src/compose/brand.js.' : ''}
 `);

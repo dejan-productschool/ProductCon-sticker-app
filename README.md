@@ -58,7 +58,15 @@ Before any of the above matters, with the real printer and the real label stock
 on the desk:
 
 ```bash
+cd ~/Github/ProductCon-sticker-app
 npm run spike
+```
+
+If the Brother is not the system default printer, name it. Quotes get stripped
+on the way through npm, so a name with spaces is fine either way:
+
+```bash
+npm run spike -- --printer "Brother VC-500W"
 ```
 
 That prints one hardcoded target: a millimetre ruler, corner registration

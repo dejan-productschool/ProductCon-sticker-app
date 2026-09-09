@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shipped today</title>
+<style>
+  :root { --ink:#14141C; --paper:#fff; --brand:#E8443A; --muted:#8A8FA0; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; overflow:hidden; }
+  body { background:var(--ink); color:var(--paper); font:400 16px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; display:flex; flex-direction:column; }
+  header { display:flex; align-items:baseline; gap:24px; padding:2.6vh 3vw 1.6vh; }
+  header h1 { font-size:clamp(24px,3.4vw,54px); font-weight:900; letter-spacing:-.02em; margin:0; }
+  header h1 em { color:var(--brand); font-style:normal; }
+  .count { margin-left:auto; font-size:clamp(30px,5vw,86px); font-weight:900; font-variant-numeric:tabular-nums; letter-spacing:-.03em; }
+  .count small { display:block; font-size:clamp(11px,1.1vw,18px); font-weight:700; letter-spacing:.14em; color:var(--muted); text-align:right; }
+  main { flex:1; overflow:hidden; padding:0 3vw 3vh; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(clamp(130px,12vw,230px),1fr)); gap:clamp(10px,1.1vw,20px); }
+  .grid img { width:100%; aspect-ratio:1; border-radius:clamp(8px,.9vw,16px); display:block; background:#222;
+              animation:pop .5s cubic-bezier(.2,1.3,.4,1) both; }
+  @keyframes pop { from { transform:scale(.7); opacity:0 } to { transform:scale(1); opacity:1 } }
+  .empty { display:grid; place-items:center; height:70%; color:var(--muted); font-size:clamp(18px,2.4vw,38px); text-align:center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SHIPPED <em>TODAY</em></h1>
+  <div class="count"><span id="n">0</span><small>STICKERS</small></div>
+</header>
+<main><div class="grid" id="grid"></div><div class="empty" id="empty">Nothing shipped yet.<br>Be the first.</div></main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let count = 0;
+
+// How many tiles the wall can hold without scrolling, so it never grows a
+// scrollbar nobody is there to drag.
+function capacity() {
+  const tile = Math.max(130, Math.min(230, window.innerWidth * 0.12));
+  const gap = Math.max(10, Math.min(20, window.innerWidth * 0.011));
+  const cols = Math.floor((window.innerWidth * 0.94 + gap) / (tile + gap));
+  const rows = Math.floor(($('grid').parentElement.clientHeight + gap) / (tile + gap));
+  return Math.max(12, cols * rows);
+}
+
+function paint(ids) {
+  const grid = $('grid');
+  grid.innerHTML = ids.slice(0, capacity())
+    .map((id) => `<img src="/api/sticker/${id}.png" alt="">`).join('');
+  $('empty').style.display = ids.length ? 'none' : 'grid';
+}
+
+// State lives on the server, so a refresh - or a screen that got unplugged -
+// comes back to a full wall rather than an empty one.
+async function load() {
+  const { printed, count: n } = await fetch('/api/wall').then((r) => r.json());
+  count = n;
+  $('n').textContent = n;
+  paint(printed.map((p) => p.id));
+}
+
+const events = new EventSource('/api/events');
+events.addEventListener('printed', (e) => {
+  const { id, count: n } = JSON.parse(e.data);
+  count = n ?? count + 1;
+  $('n').textContent = count;
+  $('empty').style.display = 'none';
+  const img = document.createElement('img');
+  img.src = `/api/sticker/${id}.png`;
+  $('grid').prepend(img);
+  while ($('grid').children.length > capacity()) $('grid').lastElementChild.remove();
+});
+events.onerror = () => setTimeout(load, 3000);
+
+addEventListener('resize', load);
+setInterval(load, 30000);
+load();
+</script>
+</body>
+</html>

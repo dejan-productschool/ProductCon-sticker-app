@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Ship It</title>
+<style>
+  :root {
+    --ink: #14141C; --paper: #fff; --brand: #E8443A; --cream: #F6F1E7;
+    --key: #23232E; --key-hi: #34343F; --muted: #8A8FA0;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: var(--ink); color: var(--paper);
+    font: 400 16px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    user-select: none; cursor: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .screen { display: none; width: 100%; height: 100%; padding: 4vh 4vw; }
+  .screen.on { display: flex; flex-direction: column; }
+
+  /* ---- attract ---- */
+  #attract { align-items: center; justify-content: center; text-align: center; gap: 4vh; }
+  #attract h1 { font-size: clamp(48px, 11vw, 190px); font-weight: 900; letter-spacing: -.03em; margin: 0; line-height: .95; }
+  #attract h1 em { color: var(--brand); font-style: normal; }
+  #attract p { font-size: clamp(20px, 3vw, 44px); color: var(--muted); margin: 0; max-width: 22ch; }
+  .pulse { animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+
+  /* ---- type ---- */
+  #type { justify-content: space-between; }
+  .prompt { font-size: clamp(20px, 2.6vw, 40px); font-weight: 700; color: var(--muted); margin: 0 0 2vh; }
+  .field {
+    flex: 1; display: flex; align-items: center;
+    border-bottom: 4px solid #2E2E3A; padding-bottom: 2vh; min-height: 18vh;
+  }
+  .field span {
+    font-size: clamp(30px, 5.4vw, 86px); font-weight: 800; letter-spacing: -.02em;
+    line-height: 1.08; word-break: break-word;
+  }
+  .field .placeholder { color: #3A3A48; }
+  .caret { display: inline-block; width: .06em; background: var(--brand); margin-left: .04em;
+           animation: blink 1s steps(1) infinite; vertical-align: -.06em; height: .95em; }
+  @keyframes blink { 50% { opacity: 0 } }
+  .count { text-align: right; color: var(--muted); font-size: clamp(14px,1.6vw,24px); padding: 1.2vh 0; font-variant-numeric: tabular-nums; }
+  .count.warn { color: var(--brand); }
+
+  /* ---- keyboard ---- */
+  .kb { display: flex; flex-direction: column; gap: .9vh; }
+  .kb .row { display: flex; gap: .8vw; justify-content: center; }
+  .kb button {
+    flex: 1 1 0; min-height: 8.4vh; border: 0; border-radius: 12px;
+    background: var(--key); color: var(--paper);
+    font: 700 clamp(18px, 2.4vw, 34px)/1 inherit; cursor: none;
+  }
+  .kb button:active { background: var(--key-hi); transform: translateY(2px); }
+  .kb .wide { flex: 2 1 0; font-size: clamp(13px,1.5vw,20px); letter-spacing: .08em; }
+  .kb .space { flex: 6 1 0; }
+  .kb .go { background: var(--brand); flex: 3 1 0; letter-spacing: .08em; }
+  .kb button[disabled] { opacity: .35; }
+
+  /* ---- pick ---- */
+  #pick { gap: 2vh; }
+  .options { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2vw; align-content: center; }
+  .option { background: none; border: 6px solid transparent; border-radius: 20px; padding: 0; cursor: none; }
+  .option img { width: 100%; aspect-ratio: 1; border-radius: 12px; display: block; background: #222; }
+  .option.sel { border-color: var(--brand); }
+  .option .nm { font-size: clamp(13px,1.5vw,22px); color: var(--muted); padding: 1vh 0 0; font-weight: 600; }
+  .option.sel .nm { color: var(--paper); }
+  .actions { display: flex; gap: 2vw; }
+  .actions button {
+    flex: 1; min-height: 11vh; border: 0; border-radius: 16px; cursor: none;
+    font: 800 clamp(20px,2.8vw,42px)/1 inherit; letter-spacing: .06em;
+  }
+  .back { background: var(--key); color: var(--paper); flex: 1 !important; }
+  .ship { background: var(--brand); color: #fff; flex: 3 !important; }
+
+  /* ---- done ---- */
+  #done { align-items: center; justify-content: center; text-align: center; gap: 3vh; }
+  #done h2 { font-size: clamp(40px,8vw,140px); font-weight: 900; margin: 0; letter-spacing: -.03em; }
+  #done p { font-size: clamp(20px,2.6vw,40px); color: var(--muted); margin: 0; max-width: 24ch; }
+  #done img { width: min(38vh, 46vw); border-radius: 16px; }
+  .err { color: var(--brand); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<section id="attract" class="screen on">
+  <h1>SHIP<br><em>IT</em></h1>
+  <p id="attractPrompt">Type one line. Take it home as a sticker.</p>
+  <p class="pulse" style="font-size:clamp(16px,2vw,30px)">Touch anywhere to start</p>
+</section>
+
+<section id="type" class="screen">
+  <div>
+    <p class="prompt" id="prompt"></p>
+    <div class="field"><span id="entry"><span class="placeholder">Start typing</span><i class="caret"></i></span></div>
+    <div class="count" id="count"></div>
+  </div>
+  <div class="kb" id="kb"></div>
+</section>
+
+<section id="pick" class="screen">
+  <p class="prompt" id="pickLine"></p>
+  <div class="options" id="options"></div>
+  <div class="actions">
+    <button class="back" onclick="go('type')">EDIT</button>
+    <button class="ship" id="shipBtn">SHIP IT</button>
+  </div>
+</section>
+
+<section id="done" class="screen">
+  <img id="doneImg" alt="">
+  <h2>SHIPPED</h2>
+  <p id="doneMsg">Your sticker is printing. Grab it from the volunteer.</p>
+</section>
+
+<script>
+const IDLE_MS = 45000;
+let cfg = { prompt: '', maxChars: 64, templates: [] };
+let text = '';
+let options = [];
+let chosen = null;
+let idleTimer;
+
+const $ = (id) => document.getElementById(id);
+const screens = ['attract', 'type', 'pick', 'done'];
+
+function go(name) {
+  screens.forEach((s) => $(s).classList.toggle('on', s === name));
+  resetIdle(name === 'attract' ? null : name === 'done' ? 7000 : IDLE_MS);
+}
+
+// The attract loop is what keeps the station usable when somebody walks off
+// mid-sentence, which happens constantly at a booth.
+function resetIdle(ms) {
+  clearTimeout(idleTimer);
+  if (!ms) return;
+  idleTimer = setTimeout(() => { text = ''; chosen = null; render(); go('attract'); }, ms);
+}
+
+function render() {
+  const el = $('entry');
+  el.innerHTML = text
+    ? text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '<i class="caret"></i>'
+    : '<span class="placeholder">Start typing</span><i class="caret"></i>';
+  const left = cfg.maxChars - text.length;
+  $('count').textContent = `${left} left`;
+  $('count').classList.toggle('warn', left <= 10);
+  document.querySelectorAll('#kb button[data-char]').forEach((b) => { b.disabled = left <= 0; });
+  $('kbGo').disabled = text.trim().length === 0;
+}
+
+/**
+ * Bind a touch action.
+ *
+ * Typing responds to pointerdown, not click. On a touchscreen click arrives
+ * 100-300 ms after the finger lands, which on a keyboard reads as the kiosk
+ * being broken - and a press that lands while a screen is still being swapped
+ * in gets dropped entirely.
+ */
+function tap(el, fn) {
+  el.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (el.disabled) return;
+    fn();
+  });
+}
+
+function key(ch) {
+  if (text.length >= cfg.maxChars) return;
+  text += ch;
+  render();
+  resetIdle(IDLE_MS);
+}
+
+function buildKeyboard() {
+  const rows = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
+  const kb = $('kb');
+  kb.innerHTML = '';
+  rows.forEach((row, i) => {
+    const div = document.createElement('div');
+    div.className = 'row';
+    [...row].forEach((ch) => {
+      const b = document.createElement('button');
+      b.textContent = ch; b.dataset.char = ch;
+      tap(b, () => key(ch));
+      div.appendChild(b);
+    });
+    if (i === 2) {
+      const del = document.createElement('button');
+      del.className = 'wide'; del.textContent = 'DELETE';
+      tap(del, () => { text = text.slice(0, -1); render(); resetIdle(IDLE_MS); });
+      div.appendChild(del);
+    }
+    kb.appendChild(div);
+  });
+
+  const last = document.createElement('div');
+  last.className = 'row';
+  for (const ch of ",.'!?") {
+    const b = document.createElement('button');
+    b.textContent = ch; b.dataset.char = ch; tap(b, () => key(ch));
+    last.appendChild(b);
+  }
+  const space = document.createElement('button');
+  space.className = 'space'; space.textContent = 'SPACE'; space.dataset.char = ' ';
+  tap(space, () => key(' '));
+  last.appendChild(space);
+
+  const goBtn = document.createElement('button');
+  goBtn.className = 'go'; goBtn.id = 'kbGo'; goBtn.textContent = 'SEE IT';
+  tap(goBtn, preview);
+  last.appendChild(goBtn);
+  kb.appendChild(last);
+}
+
+async function preview() {
+  const res = await fetch('/api/preview', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) return;
+  const data = await res.json();
+  text = data.text;
+  options = data.options;
+  chosen = options[0]?.templateId ?? null;
+
+  $('pickLine').textContent = data.dropped?.length
+    ? `"${data.text}"  -  emoji do not print, so they came out`
+    : `"${data.text}"`;
+
+  $('options').innerHTML = options.map((o, i) => `
+    <button class="option ${i === 0 ? 'sel' : ''}" data-id="${o.templateId}">
+      <img src="${o.dataUrl}" alt="${o.name}">
+      <div class="nm">${o.name}</div>
+    </button>`).join('');
+
+  document.querySelectorAll('.option').forEach((el) => {
+    tap(el, () => {
+      chosen = el.dataset.id;
+      document.querySelectorAll('.option').forEach((o) => o.classList.toggle('sel', o === el));
+      resetIdle(IDLE_MS);
+    });
+  });
+  render();
+  go('pick');
+}
+
+$('shipBtn').onclick = async () => {
+  if (!chosen) return;
+  const picked = options.find((o) => o.templateId === chosen);
+  $('shipBtn').disabled = true;
+  try {
+    const res = await fetch('/api/submit', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, templateId: chosen }),
+    });
+    if (!res.ok) throw new Error('submit failed');
+    $('doneImg').src = picked.dataUrl;
+    $('doneMsg').className = '';
+    $('doneMsg').textContent = 'Your sticker is printing. Grab it from the volunteer.';
+  } catch {
+    $('doneImg').removeAttribute('src');
+    $('doneMsg').className = 'err';
+    $('doneMsg').textContent = 'That did not send. Tell the volunteer.';
+  } finally {
+    $('shipBtn').disabled = false;
+    text = ''; chosen = null; render();
+    go('done');
+  }
+};
+
+tap($('attract'), () => go('type'));
+['pointerdown'].forEach((e) => document.addEventListener(e, () => {
+  if (!$('attract').classList.contains('on')) resetIdle($('done').classList.contains('on') ? 7000 : IDLE_MS);
+}));
+
+// The kiosk is a locked-down screen. Nothing here should offer a route out.
+document.addEventListener('contextmenu', (e) => e.preventDefault());
+document.addEventListener('keydown', (e) => e.preventDefault());
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+
+fetch('/api/config').then((r) => r.json()).then((c) => {
+  cfg = c;
+  $('prompt').textContent = c.prompt;
+  $('attractPrompt').textContent = c.prompt;
+  buildKeyboard();
+  render();
+});
+</script>
+</body>
+</html>

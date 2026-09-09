@@ -1,0 +1,21 @@
+{
+  "name": "productcon-sticker-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ship It sticker station - ProductCon SF, Product School booth",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "spike": "node src/print/spike.js",
+    "proof": "node src/compose/proof.js",
+    "start": "node src/server/index.js",
+    "dev": "node --watch src/server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "fontkit": "^2.0.4",
+    "sharp": "^0.33.5"
+  }
+}

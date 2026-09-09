@@ -18,6 +18,8 @@ import * as store from './db.js';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const PORT = Number(process.env.PORT ?? 4173);
 const PROMPT = process.env.STICKER_PROMPT ?? 'What did you ship that you are proud of?';
+// Hides the pointer on the booth touchscreen. Off while building on a laptop.
+const KIOSK = process.env.STICKER_KIOSK === '1';
 
 const app = express();
 app.use(express.json({ limit: '64kb' }));
@@ -51,6 +53,7 @@ app.get('/api/events', (req, res) => {
 app.get('/api/config', (req, res) => {
   res.json({
     prompt: PROMPT,
+    kiosk: KIOSK,
     maxChars: MAX_CHARS,
     canvas: CANVAS,
     templates: TEMPLATES.map((t) => ({ id: t.id, name: t.name, description: t.description })),

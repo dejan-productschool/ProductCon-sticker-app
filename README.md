@@ -51,6 +51,13 @@ start-up banner prints the address to use.
 | `STICKER_PRINT_MODE` | by platform | `windows`, `macos` or `dry` |
 | `STICKER_PROMPT` | "What did you ship that you are proud of?" | the question on screen one |
 | `STICKER_DATA_DIR` | `./data` | where the SQLite file lives |
+| `STICKER_KIOSK` | off | `1` hides the pointer on the booth touchscreen |
+
+A physical keyboard works everywhere: letters type, Enter advances, Backspace
+deletes, Escape goes back, arrows move between the three options. There is no
+keyboard at the booth, but there is one while you are building, and a volunteer
+can plug one in to fix a typo. Add `?kiosk=1` to the kiosk URL to see it exactly
+as the booth screen will look.
 
 ## Do the print spike first
 

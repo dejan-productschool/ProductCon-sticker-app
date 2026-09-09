@@ -14,7 +14,7 @@
   body {
     background: var(--ink); color: var(--paper);
     font: 400 16px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    user-select: none; cursor: none;
+    user-select: none;
     display: flex; align-items: center; justify-content: center;
   }
   .screen { display: none; width: 100%; height: 100%; padding: 4vh 4vw; }
@@ -52,7 +52,7 @@
   .kb button {
     flex: 1 1 0; min-height: 8.4vh; border: 0; border-radius: 12px;
     background: var(--key); color: var(--paper);
-    font: 700 clamp(18px, 2.4vw, 34px)/1 inherit; cursor: none;
+    font: 700 clamp(18px, 2.4vw, 34px)/1 inherit;
   }
   .kb button:active { background: var(--key-hi); transform: translateY(2px); }
   .kb .wide { flex: 2 1 0; font-size: clamp(13px,1.5vw,20px); letter-spacing: .08em; }
@@ -63,14 +63,14 @@
   /* ---- pick ---- */
   #pick { gap: 2vh; }
   .options { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2vw; align-content: center; }
-  .option { background: none; border: 6px solid transparent; border-radius: 20px; padding: 0; cursor: none; }
+  .option { background: none; border: 6px solid transparent; border-radius: 20px; padding: 0; }
   .option img { width: 100%; aspect-ratio: 1; border-radius: 12px; display: block; background: #222; }
   .option.sel { border-color: var(--brand); }
   .option .nm { font-size: clamp(13px,1.5vw,22px); color: var(--muted); padding: 1vh 0 0; font-weight: 600; }
   .option.sel .nm { color: var(--paper); }
   .actions { display: flex; gap: 2vw; }
   .actions button {
-    flex: 1; min-height: 11vh; border: 0; border-radius: 16px; cursor: none;
+    flex: 1; min-height: 11vh; border: 0; border-radius: 16px;
     font: 800 clamp(20px,2.8vw,42px)/1 inherit; letter-spacing: .06em;
   }
   .back { background: var(--key); color: var(--paper); flex: 1 !important; }
@@ -82,6 +82,9 @@
   #done p { font-size: clamp(20px,2.6vw,40px); color: var(--muted); margin: 0; max-width: 24ch; }
   #done img { width: min(38vh, 46vw); border-radius: 16px; }
   .err { color: var(--brand); font-weight: 700; }
+
+  /* Kiosk mode only. On a laptop you want to see the pointer. */
+  body.kiosk, body.kiosk button, body.kiosk .option { cursor: none; }
 </style>
 </head>
 <body>
@@ -277,13 +280,66 @@ tap($('attract'), () => go('type'));
   if (!$('attract').classList.contains('on')) resetIdle($('done').classList.contains('on') ? 7000 : IDLE_MS);
 }));
 
-// The kiosk is a locked-down screen. Nothing here should offer a route out.
+// A physical keyboard types into the field like you would expect.
+//
+// This used to swallow every keydown, which locked nothing down that matters -
+// the real lockdown is the browser's own kiosk mode and the OS, not a JS
+// handler - and made the kiosk impossible to use or test on a laptop. What is
+// still blocked is only the routes out of the page.
+document.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey || /^F\d+$/.test(e.key) || e.key === 'Tab') {
+    e.preventDefault();
+    return;
+  }
+
+  const on = (id) => $(id).classList.contains('on');
+
+  if (on('attract')) {
+    e.preventDefault();
+    go('type');
+    // Waking with a letter should not swallow it - somebody who just starts
+    // typing expects their first character to land.
+    if ([...e.key].length === 1) key(e.key);
+    return;
+  }
+
+  if (on('type')) {
+    if (e.key === 'Enter') { e.preventDefault(); if (text.trim()) preview(); return; }
+    if (e.key === 'Backspace') { e.preventDefault(); text = text.slice(0, -1); render(); resetIdle(IDLE_MS); return; }
+    if (e.key === 'Escape') { e.preventDefault(); text = ''; render(); go('attract'); return; }
+    // Single printable characters only; the server sanitises whatever lands.
+    if ([...e.key].length === 1 && !e.repeat) { e.preventDefault(); key(e.key); }
+    return;
+  }
+
+  if (on('pick')) {
+    if (e.key === 'Enter') { e.preventDefault(); $('shipBtn').click(); return; }
+    if (e.key === 'Escape') { e.preventDefault(); go('type'); return; }
+    // Left/right to move between the three options.
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      const els = [...document.querySelectorAll('.option')];
+      const at = els.findIndex((el) => el.classList.contains('sel'));
+      const next = els[(at + (e.key === 'ArrowRight' ? 1 : els.length - 1)) % els.length];
+      chosen = next.dataset.id;
+      els.forEach((el) => el.classList.toggle('sel', el === next));
+      resetIdle(IDLE_MS);
+    }
+    return;
+  }
+
+  if (on('done') && e.key === 'Escape') go('attract');
+});
+
 document.addEventListener('contextmenu', (e) => e.preventDefault());
-document.addEventListener('keydown', (e) => e.preventDefault());
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 
 fetch('/api/config').then((r) => r.json()).then((c) => {
   cfg = c;
+  // Kiosk mode hides the pointer. On by default only on the booth machine
+  // (STICKER_KIOSK=1); ?kiosk=1 / ?kiosk=0 overrides it for a quick look.
+  const param = new URLSearchParams(location.search).get('kiosk');
+  document.body.classList.toggle('kiosk', param === null ? !!c.kiosk : param === '1');
   $('prompt').textContent = c.prompt;
   $('attractPrompt').textContent = c.prompt;
   buildKeyboard();

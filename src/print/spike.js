@@ -20,7 +20,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { CANVAS, STICKER_MM, DPI, SAFE_INSET, mmToPx, PRINT_SECONDS } from '../compose/constants.js';
-import { PALETTE as P } from '../compose/brand.js';
+import { PALETTE as P, RAMP } from '../compose/brand.js';
 import { fitText, textToSvg } from '../compose/typeset.js';
 import { printSticker, printMode, listPrinters, printerName } from './printer.js';
 
@@ -63,7 +63,7 @@ export function targetSvg() {
 
   // The safe area the templates keep meaning inside.
   parts.push(`<rect x="${SAFE_INSET}" y="${SAFE_INSET}" width="${full.w}" height="${CANVAS - SAFE_INSET * 2}"
-    fill="none" stroke="${P.brand}" stroke-width="${hair}" stroke-dasharray="8 6" opacity="0.7"/>`);
+    fill="none" stroke="${P.blue}" stroke-width="${hair}" stroke-dasharray="8 6" opacity="0.7"/>`);
 
   // Corner crosshairs. Half of each falls outside the label, so what comes back
   // shows registration drift directly.
@@ -79,7 +79,7 @@ export function targetSvg() {
     { ...full, y: BAND.meta, h: mmToPx(2.1) }, { weight: 500, fill: '#666' }));
 
   parts.push(label(`0 to ${STICKER_MM} mm  -  measure this against a real ruler`,
-    { ...full, y: BAND.caption, h: mmToPx(2.3) }, { fill: P.brandDk, weight: 700 }));
+    { ...full, y: BAND.caption, h: mmToPx(2.3) }, { fill: P.blue, weight: 700 }));
 
   // Ruler: a tick every millimetre, taller every 5, tallest every 10.
   // If 50 mm is not 50 mm, the driver is scaling the label.
@@ -95,7 +95,7 @@ export function targetSvg() {
   }
 
   // Colour patches. ZINK is not a screen; this is how the palette really lands.
-  const swatches = [P.brand, P.brandDk, P.sun, P.mint, P.sky, P.ink, '#808080', P.cream];
+  const swatches = [P.blue, P.blueDk, P.violet, P.mauve, P.amber, P.navy, P.ink, '#808080'];
   const sw = full.w / swatches.length;
   swatches.forEach((c, i) => {
     parts.push(`<rect x="${(full.x + i * sw).toFixed(2)}" y="${BAND.swatches}" width="${sw.toFixed(2)}"

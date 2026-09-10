@@ -4,38 +4,60 @@
 // renderer's font lookup. We read the outlines out of the .ttf ourselves and
 // emit <path> elements. Same input, same pixels, on the Mac it was designed on
 // and on the Windows mini PC in the hall, with no fonts installed there.
+//
+// Fonts are Figtree and JetBrains Mono - the pair the AIPMC decks use. Product
+// School's own faces are saans / saansDisplay / antarcticanMono, which are
+// licensed and not redistributable, so they are not vendored here. If the
+// licence covers this, drop the .ttf into assets/fonts and change FACES.
 
 import * as fontkit from 'fontkit';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const FONT_PATH = join(HERE, '../../assets/fonts/Inter[opsz,wght].ttf');
+const fontPath = (f) => join(HERE, '../../assets/fonts/', f);
 
-const font = fontkit.openSync(FONT_PATH);
-const UPEM = font.unitsPerEm;
+const FACES = {
+  display: 'Figtree[wght].ttf',
+  mono: 'JetBrainsMono[wght].ttf',
+};
 
-// Instancing a variable font is not free, and we do it once per size probe
-// during auto-fit. Cache by weight.
+const faces = Object.fromEntries(
+  Object.entries(FACES).map(([key, file]) => [key, fontkit.openSync(fontPath(file))])
+);
+
+export const DEFAULT_FACE = 'display';
+
+// Instancing a variable font is not free, and auto-fit probes many sizes.
+// Cache by face and weight.
 const instances = new Map();
-function instance(weight) {
-  if (!instances.has(weight)) {
-    instances.set(weight, font.getVariation({ wght: weight, opsz: 32 }));
-  }
-  return instances.get(weight);
+function instance(face, weight) {
+  const key = `${face}:${weight}`;
+  if (!instances.has(key)) instances.set(key, faces[face].getVariation({ wght: weight }));
+  return instances.get(key);
 }
 
-/** Does the font actually have a glyph for this code point? */
+const upem = (face) => faces[face].unitsPerEm;
+export const capRatio = (face = DEFAULT_FACE) =>
+  (faces[face].capHeight ?? upem(face) * 0.7) / upem(face);
+
+/**
+ * Can every face draw this code point?
+ *
+ * Deliberately strict: a character kept because the display face has it, but
+ * missing from the mono face, would print as a .notdef box the moment somebody
+ * picks the Terminal template.
+ */
 export function hasGlyph(codePoint) {
-  return font.hasGlyphForCodePoint(codePoint);
+  return Object.values(faces).every((f) => f.hasGlyphForCodePoint(codePoint));
 }
 
 /** Width of a string in em units (multiply by fontSize for px). */
-function measureEm(text, weight, tracking) {
+function measureEm(text, face, weight, tracking) {
   if (!text) return 0;
-  const run = instance(weight).layout(text);
-  const trackingUnits = tracking * UPEM * Math.max(0, run.glyphs.length - 1);
-  return (run.advanceWidth + trackingUnits) / UPEM;
+  const run = instance(face, weight).layout(text);
+  const trackingUnits = tracking * upem(face) * Math.max(0, run.glyphs.length - 1);
+  return (run.advanceWidth + trackingUnits) / upem(face);
 }
 
 /**
@@ -46,12 +68,12 @@ function measureEm(text, weight, tracking) {
  * to minFontSize and still overflows, which is the one way a sticker can reach
  * the printer looking broken.
  */
-function hardBreak(word, { fontSize, weight, tracking, maxWidth }) {
+function hardBreak(word, opts) {
   const pieces = [];
   let piece = '';
   for (const ch of word) {
     const candidate = piece + ch;
-    if (piece && measureEm(candidate, weight, tracking) * fontSize > maxWidth) {
+    if (piece && measureEm(candidate, opts.face, opts.weight, opts.tracking) * opts.fontSize > opts.maxWidth) {
       pieces.push(piece);
       piece = ch;
     } else {
@@ -66,20 +88,18 @@ function hardBreak(word, { fontSize, weight, tracking, maxWidth }) {
  * Greedy word wrap at a given font size. Never returns null: words too wide for
  * the column are broken rather than refused.
  */
-function wrap(text, { fontSize, weight, tracking, maxWidth }) {
+function wrap(text, opts) {
+  const { face, weight, tracking, fontSize, maxWidth } = opts;
   const words = text.split(/\s+/).filter(Boolean).flatMap((word) =>
-    measureEm(word, weight, tracking) * fontSize > maxWidth
-      ? hardBreak(word, { fontSize, weight, tracking, maxWidth })
-      : [word]
+    measureEm(word, face, weight, tracking) * fontSize > maxWidth ? hardBreak(word, opts) : [word]
   );
   if (words.length === 0) return [];
 
   const lines = [];
   let current = '';
-
   for (const word of words) {
     const candidate = current ? `${current} ${word}` : word;
-    if (measureEm(candidate, weight, tracking) * fontSize <= maxWidth) {
+    if (measureEm(candidate, face, weight, tracking) * fontSize <= maxWidth) {
       current = candidate;
     } else {
       if (current) lines.push(current);
@@ -100,6 +120,7 @@ function wrap(text, { fontSize, weight, tracking, maxWidth }) {
  */
 export function fitText(text, box, style = {}) {
   const {
+    face = DEFAULT_FACE,
     weight = 800,
     tracking = 0,          // em units, added between glyphs
     lineHeight = 1.05,     // multiple of font size
@@ -110,31 +131,29 @@ export function fitText(text, box, style = {}) {
     step = 2,
   } = style;
 
+  const base = { face, weight, tracking, maxWidth: box.w };
+
   for (let fontSize = maxFontSize; fontSize >= minFontSize; fontSize -= step) {
-    const lines = wrap(text, { fontSize, weight, tracking, maxWidth: box.w });
-    const blockHeight = lines.length * fontSize * lineHeight;
-    if (blockHeight > box.h) continue;
-    return { fits: true, lines, fontSize, lineHeight, weight, tracking, align, vAlign, box, blockHeight };
+    const lines = wrap(text, { ...base, fontSize });
+    if (lines.length * fontSize * lineHeight > box.h) continue;
+    return { fits: true, lines, fontSize, lineHeight, face, weight, tracking, align, vAlign, box };
   }
 
   // Nothing fit. Return the smallest attempt so the caller can render a proof
   // and see the overflow rather than getting an exception.
-  const lines = wrap(text, { fontSize: minFontSize, weight, tracking, maxWidth: box.w });
   return {
-    fits: false, lines, fontSize: minFontSize, lineHeight, weight, tracking,
-    align, vAlign, box, blockHeight: lines.length * minFontSize * lineHeight,
+    fits: false, lines: wrap(text, { ...base, fontSize: minFontSize }),
+    fontSize: minFontSize, lineHeight, face, weight, tracking, align, vAlign, box,
   };
 }
 
 /** Turn a fitText() result into SVG <path> markup. */
 export function textToSvg(fitted, { fill = '#000' } = {}) {
-  const { lines, fontSize, lineHeight, weight, tracking, align, vAlign, box } = fitted;
-  const scale = fontSize / UPEM;
-  const inst = instance(weight);
+  const { lines, fontSize, lineHeight, face, weight, tracking, align, vAlign, box } = fitted;
+  const scale = fontSize / upem(face);
+  const inst = instance(face, weight);
 
-  // Inter's cap height sits well below the em box top; centring on the em box
-  // leaves the block looking high. Centre on the actual cap band instead.
-  const capHeight = (font.capHeight ?? UPEM * 0.72) * scale;
+  const capHeight = capRatio(face) * fontSize;
   const lineStep = fontSize * lineHeight;
   // Centre the cap band, not the em boxes. Leading below the last line and the
   // gap above the caps on the first are both invisible, and including them
@@ -150,9 +169,8 @@ export function textToSvg(fitted, { fill = '#000' } = {}) {
 
   lines.forEach((line, i) => {
     const run = inst.layout(line);
-    const trackingUnits = tracking * UPEM;
     const lineWidth =
-      (run.advanceWidth + trackingUnits * Math.max(0, run.glyphs.length - 1)) * scale;
+      (run.advanceWidth + tracking * upem(face) * Math.max(0, run.glyphs.length - 1)) * scale;
 
     let penX;
     if (align === 'left') penX = box.x;
@@ -185,4 +203,6 @@ export function typeset(text, box, style = {}, { fill = '#000' } = {}) {
   return { svg: textToSvg(fitted, { fill }), fitted };
 }
 
-export const FONT_INFO = { family: font.familyName, unitsPerEm: UPEM, path: FONT_PATH };
+export const FONT_INFO = Object.fromEntries(
+  Object.entries(faces).map(([k, f]) => [k, { family: f.familyName, unitsPerEm: f.unitsPerEm, capRatio: capRatio(k) }])
+);

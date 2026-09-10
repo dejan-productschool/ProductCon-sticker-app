@@ -1,3 +1,5 @@
+import { capRatio } from './typeset.js';
+
 // Every number here is derived from the Brother VC-500W spec sheet.
 // Change DPI or STICKER_MM and the whole system follows. Nothing downstream
 // should hardcode 616.
@@ -26,7 +28,7 @@ export const SAFE = {
 // Legibility floor. A sticker is read at arm's length, so what matters is cap
 // height in millimetres, not pixels. Below this the line stops reading as a
 // statement and starts reading as small print.
-export const CAP_RATIO = 0.7275;   // Inter cap height / em
+export const CAP_RATIO = capRatio();   // read from the display face itself
 export const MIN_CAP_MM = 2.5;
 export const MIN_LEGIBLE_PX = Math.ceil((MIN_CAP_MM / CAP_RATIO) * (DPI / MM_PER_INCH));
 export const pxToCapMm = (px) => (px * CAP_RATIO * MM_PER_INCH) / DPI;

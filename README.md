@@ -10,6 +10,10 @@ live wall of everything printed today.
 Six designed templates, no generative AI at run time, everything running on one
 machine at the booth.
 
+Built on the real Product School system: brand blue `#2758E2` and the deep navy
+and off-white from the wordmark itself, the AIPMC decks' amber -> mauve ->
+violet -> blue ramp, the actual lockup, and Figtree + JetBrains Mono.
+
 ## The numbers everything derives from
 
 Brother VC-500W, already bought:
@@ -135,10 +139,13 @@ the booth machine with no fonts installed.
 
 ## Still open
 
-- [ ] **Real brand assets.** `src/compose/brand.js` is placeholder colours and a
-      typeset wordmark. Drop a real `assets/brand/lockup.svg` in and replace the
-      palette. Check with whoever owns the brand before pushing - this repo is
-      public.
+- [ ] **Type licensing.** Product School's own faces are saans / saansDisplay /
+      antarcticanMono, which are licensed and not redistributable, so the
+      templates use Figtree + JetBrains Mono - the open pair the AIPMC decks
+      already use. If the licence covers this, drop the .ttf into
+      `assets/fonts` and change `FACES` in `src/compose/typeset.js`.
+- [ ] **The repo is public** and now carries the real wordmark and palette.
+      Worth a nod from whoever owns the brand before pushing.
 - [ ] **The six designs**, reviewed by a designer. The software is the small part.
 - [ ] The prompt question, or a rotating set.
 - [ ] Whether the wall shows the text or only the artwork.

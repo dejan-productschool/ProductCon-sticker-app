@@ -30,8 +30,11 @@ in it are not up for renegotiation without asking.
 - Text is rendered from font outlines via fontkit, not by a font lookup, so
   output is identical on the Mac it was built on and the Windows booth machine
   with no fonts installed.
-- `src/compose/brand.js` is placeholder brand values. It is the only file that
-  has to change when the real palette and lockup arrive.
+- `src/compose/brand.js` holds the real palette and loads the real wordmark from
+  `assets/brand/lockup.svg`. It is the only file that carries a brand colour.
+- Type is Figtree + JetBrains Mono (the AIPMC decks' pair). Product School's own
+  saans / antarcticanMono are licensed and deliberately not vendored - see
+  `FACES` in `src/compose/typeset.js`.
 - Re-run `node src/compose/limit.js` after changing any template's text box.
 - Node 22+ required: the queue uses the built-in `node:sqlite`, so there is no
   native module to compile on the Windows mini PC.

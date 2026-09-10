@@ -30,20 +30,24 @@ How the palette actually landed. ZINK is not a screen.
 
 | swatch | hex | looked like |
 |---|---|---|
-| brand | `#E8443A` | |
-| brandDk | `#B22C24` | |
-| sun | `#FFC531` | |
-| mint | `#16C79A` | |
-| sky | `#2B6CF6` | |
-| ink | `#14141C` | |
+| blue (brand) | `#2758E2` | |
+| blueDk | `#1A2B6B` | |
+| violet | `#7B61E8` | |
+| mauve | `#C77BC0` | |
+| amber | `#F59A3F` | |
+| navy | `#07182C` | |
+| ink | `#0A0A0B` | |
 | 50% grey | `#808080` | |
-| cream | `#F6F1E7` | |
+
+The ramp band on the Ramp template is a gradient across amber -> mauve ->
+violet -> blue. Check it does not band or posterise on ZINK.
 
 ## What this changes
 
 - [ ] `SAFE_INSET` in `src/compose/constants.js` (currently 6%) - raise it if the
       edge rule got clipped
 - [ ] `PALETTE` in `src/compose/brand.js` - shift values if ZINK moved them
+- [ ] Whether the lockup still reads at 21 px tall once printed
 - [ ] The 200/hour throughput number, and therefore whether one unit is enough
 - [ ] Whether the standard Windows print path is good enough, or b-PAC is needed
       for explicit half-cut control

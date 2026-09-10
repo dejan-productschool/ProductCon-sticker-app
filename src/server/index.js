@@ -9,6 +9,7 @@ import { dirname, join } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import { compose, offerTemplates } from '../compose/compose.js';
 import { sanitise, MAX_CHARS } from '../compose/sanitise.js';
+import { QUESTIONS, FREE_TEXT_ALLOWED, linesFor, previewText } from '../compose/survey.js';
 import { getTemplate, TEMPLATES } from '../compose/templates.js';
 import { CANVAS, PRINT_SECONDS } from '../compose/constants.js';
 import { USING_PLACEHOLDER_LOCKUP } from '../compose/brand.js';
@@ -17,7 +18,6 @@ import * as store from './db.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const PORT = Number(process.env.PORT ?? 4173);
-const PROMPT = process.env.STICKER_PROMPT ?? 'What did you ship that you are proud of?';
 // Hides the pointer on the booth touchscreen. Off while building on a laptop.
 const KIOSK = process.env.STICKER_KIOSK === '1';
 
@@ -52,33 +52,45 @@ app.get('/api/events', (req, res) => {
 
 app.get('/api/config', (req, res) => {
   res.json({
-    prompt: PROMPT,
     kiosk: KIOSK,
     maxChars: MAX_CHARS,
     canvas: CANVAS,
+    questions: QUESTIONS,
+    freeText: FREE_TEXT_ALLOWED,
     templates: TEMPLATES.map((t) => ({ id: t.id, name: t.name, description: t.description })),
   });
 });
 
-/** Compose the three options for a typed line. */
-app.post('/api/preview', async (req, res) => {
-  const clean = sanitise(req.body?.text);
-  if (clean.text.length === 0) {
-    return res.status(400).json({ error: 'empty', reasons: clean.reasons });
-  }
+/** Answers in, hand-written lines out. Nothing is generated here. */
+app.post('/api/lines', (req, res) => {
+  const answers = req.body?.answers ?? {};
+  res.json({ lines: linesFor(answers), preview: previewText(answers) });
+});
 
-  const ids = offerTemplates(clean.text);
-  const options = await Promise.all(ids.map(async (id) => {
-    const { png, meta } = await compose(clean.text, id, { skipSanitise: true });
-    return {
-      templateId: id,
-      name: getTemplate(id).name,
-      fontSize: meta.fontSize,
-      dataUrl: `data:image/png;base64,${png.toString('base64')}`,
-    };
-  }));
+/**
+ * Which templates can set this line legibly, and what they are called.
+ * The images themselves come from /api/render, so the kiosk can let the
+ * browser cache them instead of pushing base64 through JSON on every keystroke.
+ */
+app.get('/api/options', (req, res) => {
+  const clean = sanitise(req.query.text);
+  if (clean.text.length === 0) return res.status(400).json({ error: 'empty' });
+  res.json({
+    text: clean.text,
+    reasons: clean.reasons,
+    dropped: clean.dropped,
+    templates: offerTemplates(clean.text).map((id) => ({ id, name: getTemplate(id).name })),
+  });
+});
 
-  res.json({ text: clean.text, reasons: clean.reasons, dropped: clean.dropped, options });
+/** A composed sticker as a PNG, for previews. Not stored, not queued. */
+app.get('/api/render', async (req, res) => {
+  const clean = sanitise(req.query.text);
+  const templateId = String(req.query.template ?? '');
+  if (clean.text.length === 0 || !getTemplate(templateId)) return res.sendStatus(400);
+
+  const { png } = await compose(clean.text, templateId, { skipSanitise: true });
+  res.type('png').set('Cache-Control', 'public, max-age=600').send(png);
 });
 
 /** Ship It. Composes the final PNG and puts it in front of a volunteer. */
@@ -96,6 +108,7 @@ app.post('/api/submit', async (req, res) => {
     png,
     flagged: !clean.ok,
     reasons: clean.reasons,
+    answers: req.body?.answers ?? {},
   });
 
   broadcast('queued', { id, text: clean.text, templateId, flagged: !clean.ok });
@@ -139,7 +152,11 @@ app.post('/api/queue/:id/reject', (req, res) => {
 // -------------------------------------------------------------------- the wall
 
 app.get('/api/wall', (req, res) => {
-  res.json({ printed: store.listPrinted(200), count: store.printedCount() });
+  res.json({
+    printed: store.listPrinted(200),
+    count: store.printedCount(),
+    tally: store.answerTally(),
+  });
 });
 
 // ------------------------------------------------------------------- printing
@@ -232,8 +249,7 @@ app.listen(PORT, () => {
   wall     http://localhost:${PORT}/wall/
 
   printer  ${printMode()}${printerName() ? ` -> "${printerName()}"` : ' (system default)'}
-  prompt   "${PROMPT}"
-  limit    ${MAX_CHARS} characters${USING_PLACEHOLDER_LOCKUP ? '\n\n  ! Brand assets are placeholders. See src/compose/brand.js.' : ''}
+  survey   ${QUESTIONS.map((q) => `${q.id} (${q.options.length})`).join(' -> ')}${FREE_TEXT_ALLOWED ? ', free text on' : ''}${USING_PLACEHOLDER_LOCKUP ? '\n\n  ! Brand assets are placeholders. See src/compose/brand.js.' : ''}
 `);
   pump();
 });

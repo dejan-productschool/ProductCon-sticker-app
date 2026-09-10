@@ -11,7 +11,8 @@
     "spike": "node src/print/spike.js",
     "proof": "node src/compose/proof.js",
     "start": "node src/server/index.js",
-    "dev": "node --watch src/server/index.js"
+    "dev": "node --watch src/server/index.js",
+    "lines": "node src/compose/check-lines.js"
   },
   "dependencies": {
     "express": "^4.21.2",

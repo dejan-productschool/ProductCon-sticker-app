@@ -19,7 +19,8 @@ in it are not up for renegotiation without asking.
 
 ## Where things are
 
-    src/compose/   text fitting, the six templates, PNG rendering
+    content/       the survey questions and the hand-written line bank
+    src/compose/   text fitting, the six templates, survey resolution, rendering
     src/print/     printer adapter + the day-one print spike
     src/server/    express server, SQLite queue, print worker
     public/        kiosk (/), approve tablet (/approve/), wall (/wall/)
@@ -35,6 +36,10 @@ in it are not up for renegotiation without asking.
 - Type is Figtree + JetBrains Mono (the AIPMC decks' pair). Product School's own
   saans / antarcticanMono are licensed and deliberately not vendored - see
   `FACES` in `src/compose/typeset.js`.
-- Re-run `node src/compose/limit.js` after changing any template's text box.
+- Re-run `node src/compose/limit.js` after changing any template's text box, and
+  `npm run lines` after editing content/survey.json.
+- The attendee picks from hand-written lines rather than typing. That is what
+  keeps the booth at printer speed rather than keyboard speed, and it is why
+  there is almost no moderation surface left.
 - Node 22+ required: the queue uses the built-in `node:sqlite`, so there is no
   native module to compile on the Windows mini PC.

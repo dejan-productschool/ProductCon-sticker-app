@@ -6,111 +6,169 @@
 <title>Ship It</title>
 <style>
   :root {
-    --ink: #0A0A0B; --paper: #FCFCFC; --brand: #2758E2; --cream: #F4F4F4;
-    --key: #1A1B21; --key-hi: #262832; --muted: #8A8FA0;
+    --ink:#0A0A0B; --navy:#07182C; --paper:#FCFCFC; --brand:#2758E2;
+    --key:#1A1B21; --key-hi:#262832; --muted:#8A8FA0; --line:#23252E;
   }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; margin: 0; overflow: hidden; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; margin:0; overflow:hidden; }
   body {
-    background: var(--ink); color: var(--paper);
-    font: 400 16px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    user-select: none;
-    display: flex; align-items: center; justify-content: center;
+    background:var(--ink); color:var(--paper);
+    font:400 16px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    user-select:none;
   }
-  .screen { display: none; width: 100%; height: 100%; padding: 4vh 4vw; }
-  .screen.on { display: flex; flex-direction: column; }
+  body.kiosk, body.kiosk button { cursor:none; }
+
+  .screen { display:none; width:100%; height:100%; padding:4vh 4vw; }
+  .screen.on { display:flex; flex-direction:column; }
 
   /* ---- attract ---- */
-  #attract { align-items: center; justify-content: center; text-align: center; gap: 4vh; }
-  #attract h1 { font-size: clamp(48px, 11vw, 190px); font-weight: 900; letter-spacing: -.03em; margin: 0; line-height: .95; }
-  #attract h1 em { color: var(--brand); font-style: normal; }
-  #attract p { font-size: clamp(20px, 3vw, 44px); color: var(--muted); margin: 0; max-width: 22ch; }
-  .pulse { animation: pulse 2.4s ease-in-out infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+  #attract { align-items:center; justify-content:center; text-align:center; gap:4vh; }
+  #attract h1 { font-size:clamp(48px,11vw,190px); font-weight:900; letter-spacing:-.03em; margin:0; line-height:.95; }
+  #attract h1 em { color:var(--brand); font-style:normal; }
+  #attract p { font-size:clamp(20px,3vw,44px); color:var(--muted); margin:0; max-width:24ch; }
+  .pulse { animation:pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
 
-  /* ---- type ---- */
-  #type { justify-content: space-between; }
-  .prompt { font-size: clamp(20px, 2.6vw, 40px); font-weight: 700; color: var(--muted); margin: 0 0 2vh; }
-  .field {
-    flex: 1; display: flex; align-items: center;
-    border-bottom: 4px solid #23252E; padding-bottom: 2vh; min-height: 18vh;
-  }
-  .field span {
-    font-size: clamp(30px, 5.4vw, 86px); font-weight: 800; letter-spacing: -.02em;
-    line-height: 1.08; word-break: break-word;
-  }
-  .field .placeholder { color: #2A2C36; }
-  .caret { display: inline-block; width: .06em; background: var(--brand); margin-left: .04em;
-           animation: blink 1s steps(1) infinite; vertical-align: -.06em; height: .95em; }
-  @keyframes blink { 50% { opacity: 0 } }
-  .count { text-align: right; color: var(--muted); font-size: clamp(14px,1.6vw,24px); padding: 1.2vh 0; font-variant-numeric: tabular-nums; }
-  .count.warn { color: var(--brand); }
+  /* ---- question + line screens share a two-column shell ---- */
+  .head { display:flex; align-items:center; gap:2vw; margin-bottom:2.5vh; }
+  .prompt { font-size:clamp(22px,3vw,46px); font-weight:800; letter-spacing:-.02em; margin:0; }
+  .dots { margin-left:auto; display:flex; gap:10px; }
+  .dots i { width:11px; height:11px; border-radius:50%; background:var(--line); display:block; }
+  .dots i.on { background:var(--brand); }
+  .dots i.done { background:var(--muted); }
 
-  /* ---- keyboard ---- */
-  .kb { display: flex; flex-direction: column; gap: .9vh; }
-  .kb .row { display: flex; gap: .8vw; justify-content: center; }
-  .kb button {
-    flex: 1 1 0; min-height: 8.4vh; border: 0; border-radius: 12px;
-    background: var(--key); color: var(--paper);
-    font: 700 clamp(18px, 2.4vw, 34px)/1 inherit;
+  .cols { flex:1; display:flex; gap:3vw; min-height:0; }
+  .choices { flex:1.35; display:flex; flex-direction:column; gap:1.4vh; justify-content:center; min-width:0; }
+  .choices button {
+    width:100%; text-align:left; border:2px solid var(--line); border-radius:16px;
+    background:var(--key); color:var(--paper); padding:2.2vh 3vh;
+    font:700 clamp(17px,2.1vw,34px)/1.25 inherit; letter-spacing:-.01em;
   }
-  .kb button:active { background: var(--key-hi); transform: translateY(2px); }
-  .kb .wide { flex: 2 1 0; font-size: clamp(13px,1.5vw,20px); letter-spacing: .08em; }
-  .kb .space { flex: 6 1 0; }
-  .kb .go { background: var(--brand); flex: 3 1 0; letter-spacing: .08em; }
-  .kb button[disabled] { opacity: .35; }
+  .choices button:active { background:var(--key-hi); transform:translateY(2px); }
+  .choices button.sel { border-color:var(--brand); background:var(--key-hi); }
+  .choices .ghost { background:none; border-style:dashed; color:var(--muted); font-weight:600;
+                    font-size:clamp(14px,1.6vw,24px); padding:1.6vh 3vh; }
 
-  /* ---- pick ---- */
-  #pick { gap: 2vh; }
-  .options { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2vw; align-content: center; }
-  .option { background: none; border: 6px solid transparent; border-radius: 20px; padding: 0; }
-  .option img { width: 100%; aspect-ratio: 1; border-radius: 12px; display: block; background: #222; }
-  .option.sel { border-color: var(--brand); }
-  .option .nm { font-size: clamp(13px,1.5vw,22px); color: var(--muted); padding: 1vh 0 0; font-weight: 600; }
-  .option.sel .nm { color: var(--paper); }
-  .actions { display: flex; gap: 2vw; }
-  .actions button {
-    flex: 1; min-height: 11vh; border: 0; border-radius: 16px;
-    font: 800 clamp(20px,2.8vw,42px)/1 inherit; letter-spacing: .06em;
-  }
-  .back { background: var(--key); color: var(--paper); flex: 1 !important; }
-  .ship { background: var(--brand); color: #fff; flex: 3 !important; }
+  .stage { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1.6vh; min-width:0; }
+  .stage img { width:min(100%,42vh); aspect-ratio:1; border-radius:16px; background:var(--key);
+               object-fit:contain; transition:opacity .18s ease; }
+  .stage img.loading { opacity:.35; }
+  .stage .cap { color:var(--muted); font-size:clamp(12px,1.3vw,19px); font-weight:600; letter-spacing:.1em; }
+  /* Before the first answer there is nothing to show. An empty grey square
+     reads as a broken image, so say what the space is for instead. */
+  .stage.empty img, .stage.empty .cap { display:none; }
+  .stage .hint { display:none; width:min(100%,42vh); aspect-ratio:1; border:2px dashed var(--line);
+                 border-radius:16px; align-items:center; justify-content:center; text-align:center;
+                 color:var(--muted); font-size:clamp(13px,1.5vw,22px); font-weight:600;
+                 padding:0 2em; line-height:1.4; }
+  .stage.empty .hint { display:flex; }
+
+  /* ---- design picker ---- */
+  .options { flex:1; display:grid; grid-template-columns:repeat(3,1fr); gap:2vw; align-content:center; }
+  .option { background:none; border:6px solid transparent; border-radius:20px; padding:0; }
+  .option img { width:100%; aspect-ratio:1; border-radius:12px; display:block; background:var(--key); }
+  .option.sel { border-color:var(--brand); }
+  .option .nm { font-size:clamp(13px,1.5vw,22px); color:var(--muted); padding:1vh 0 0; font-weight:600; }
+  .option.sel .nm { color:var(--paper); }
+
+  .actions { display:flex; gap:2vw; margin-top:2.5vh; }
+  .actions button { min-height:11vh; border:0; border-radius:16px;
+                    font:800 clamp(18px,2.6vw,40px)/1 inherit; letter-spacing:.06em; }
+  .back { background:var(--key); color:var(--paper); flex:1; }
+  .ship { background:var(--brand); color:#fff; flex:3; }
+  .actions button[disabled] { opacity:.4; }
+
+  /* ---- free text ---- */
+  #write { justify-content:space-between; }
+  .field { flex:1; display:flex; align-items:center; border-bottom:4px solid var(--line);
+           padding-bottom:2vh; min-height:16vh; }
+  .field span { font-size:clamp(28px,5vw,80px); font-weight:800; letter-spacing:-.02em;
+                line-height:1.08; word-break:break-word; }
+  .field .placeholder { color:#2A2C36; }
+  .caret { display:inline-block; width:.06em; background:var(--brand); margin-left:.04em;
+           animation:blink 1s steps(1) infinite; vertical-align:-.06em; height:.95em; }
+  @keyframes blink { 50%{opacity:0} }
+  .count { text-align:right; color:var(--muted); font-size:clamp(14px,1.6vw,24px);
+           padding:1.2vh 0; font-variant-numeric:tabular-nums; }
+  .count.warn { color:var(--brand); }
+  .kb { display:flex; flex-direction:column; gap:.9vh; }
+  .kb .row { display:flex; gap:.8vw; justify-content:center; }
+  .kb button { flex:1 1 0; min-height:8.4vh; border:0; border-radius:12px;
+               background:var(--key); color:var(--paper); font:700 clamp(18px,2.4vw,34px)/1 inherit; }
+  .kb button:active { background:var(--key-hi); transform:translateY(2px); }
+  .kb .wide { flex:2 1 0; font-size:clamp(13px,1.5vw,20px); letter-spacing:.08em; }
+  .kb .space { flex:6 1 0; }
+  .kb .go { background:var(--brand); flex:3 1 0; letter-spacing:.08em; }
+  .kb button[disabled] { opacity:.35; }
 
   /* ---- done ---- */
-  #done { align-items: center; justify-content: center; text-align: center; gap: 3vh; }
-  #done h2 { font-size: clamp(40px,8vw,140px); font-weight: 900; margin: 0; letter-spacing: -.03em; }
-  #done p { font-size: clamp(20px,2.6vw,40px); color: var(--muted); margin: 0; max-width: 24ch; }
-  #done img { width: min(38vh, 46vw); border-radius: 16px; }
-  .err { color: var(--brand); font-weight: 700; }
-
-  /* Kiosk mode only. On a laptop you want to see the pointer. */
-  body.kiosk, body.kiosk button, body.kiosk .option { cursor: none; }
+  #done { align-items:center; justify-content:center; text-align:center; gap:3vh; }
+  #done h2 { font-size:clamp(40px,8vw,140px); font-weight:900; margin:0; letter-spacing:-.03em; }
+  #done p { font-size:clamp(20px,2.6vw,40px); color:var(--muted); margin:0; max-width:24ch; }
+  #done img { width:min(38vh,46vw); border-radius:16px; }
+  .err { color:var(--brand); font-weight:700; }
 </style>
 </head>
 <body>
 
 <section id="attract" class="screen on">
   <h1>SHIP<br><em>IT</em></h1>
-  <p id="attractPrompt">Type one line. Take it home as a sticker.</p>
+  <p>Four taps. One sticker. Yours to keep.</p>
   <p class="pulse" style="font-size:clamp(16px,2vw,30px)">Touch anywhere to start</p>
 </section>
 
-<section id="type" class="screen">
+<section id="ask" class="screen">
+  <div class="head">
+    <p class="prompt" id="askPrompt"></p>
+    <div class="dots" id="dots"></div>
+  </div>
+  <div class="cols">
+    <div class="choices" id="askChoices"></div>
+    <div class="stage empty" id="askStage">
+      <div class="hint">Your sticker appears here as you answer</div>
+      <img id="askPreview" alt="">
+      <div class="cap">YOUR STICKER SO FAR</div>
+    </div>
+  </div>
+</section>
+
+<section id="pickLine" class="screen">
+  <div class="head">
+    <p class="prompt">Pick your line.</p>
+    <div class="dots" id="dots3"></div>
+  </div>
+  <div class="cols">
+    <div class="choices" id="lineChoices"></div>
+    <div class="stage">
+      <img id="linePreview" alt="">
+      <div class="cap">YOUR STICKER SO FAR</div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="back" id="lineBack">BACK</button>
+    <button class="ship" id="lineNext">PICK A LOOK</button>
+  </div>
+</section>
+
+<section id="pickDesign" class="screen">
+  <div class="head">
+    <p class="prompt" id="designLine"></p>
+    <div class="dots" id="dots4"></div>
+  </div>
+  <div class="options" id="options"></div>
+  <div class="actions">
+    <button class="back" id="designBack">BACK</button>
+    <button class="ship" id="shipBtn">SHIP IT</button>
+  </div>
+</section>
+
+<section id="write" class="screen">
   <div>
-    <p class="prompt" id="prompt"></p>
+    <p class="prompt">Write your own.</p>
     <div class="field"><span id="entry"><span class="placeholder">Start typing</span><i class="caret"></i></span></div>
     <div class="count" id="count"></div>
   </div>
   <div class="kb" id="kb"></div>
-</section>
-
-<section id="pick" class="screen">
-  <p class="prompt" id="pickLine"></p>
-  <div class="options" id="options"></div>
-  <div class="actions">
-    <button class="back" onclick="go('type')">EDIT</button>
-    <button class="ship" id="shipBtn">SHIP IT</button>
-  </div>
 </section>
 
 <section id="done" class="screen">
@@ -121,80 +179,230 @@
 
 <script>
 const IDLE_MS = 45000;
-let cfg = { prompt: '', maxChars: 64, templates: [] };
-let text = '';
-let options = [];
-let chosen = null;
+const PREVIEW_TEMPLATE = 'block'; // stable while the line is still forming
+
+let cfg = { questions: [], maxChars: 64, freeText: true };
+let step = 0;               // index into cfg.questions
+let answers = {};
+let lines = [];
+let line = '';
+let templates = [];
+let templateId = null;
+let text = '';              // free-text path only
 let idleTimer;
 
 const $ = (id) => document.getElementById(id);
-const screens = ['attract', 'type', 'pick', 'done'];
+const SCREENS = ['attract', 'ask', 'pickLine', 'pickDesign', 'write', 'done'];
+const on = (id) => $(id).classList.contains('on');
 
 function go(name) {
-  screens.forEach((s) => $(s).classList.toggle('on', s === name));
+  SCREENS.forEach((s) => $(s).classList.toggle('on', s === name));
   resetIdle(name === 'attract' ? null : name === 'done' ? 7000 : IDLE_MS);
 }
 
 // The attract loop is what keeps the station usable when somebody walks off
-// mid-sentence, which happens constantly at a booth.
+// part-way through, which happens constantly at a booth.
 function resetIdle(ms) {
   clearTimeout(idleTimer);
   if (!ms) return;
-  idleTimer = setTimeout(() => { text = ''; chosen = null; render(); go('attract'); }, ms);
+  idleTimer = setTimeout(reset, ms);
 }
 
-function render() {
-  const el = $('entry');
-  el.innerHTML = text
-    ? text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '<i class="caret"></i>'
-    : '<span class="placeholder">Start typing</span><i class="caret"></i>';
-  const left = cfg.maxChars - text.length;
-  $('count').textContent = `${left} left`;
-  $('count').classList.toggle('warn', left <= 10);
-  document.querySelectorAll('#kb button[data-char]').forEach((b) => { b.disabled = left <= 0; });
-  $('kbGo').disabled = text.trim().length === 0;
+function reset() {
+  step = 0; answers = {}; lines = []; line = ''; templateId = null; text = '';
+  go('attract');
 }
 
 /**
  * Bind a touch action.
  *
- * Typing responds to pointerdown, not click. On a touchscreen click arrives
- * 100-300 ms after the finger lands, which on a keyboard reads as the kiosk
- * being broken - and a press that lands while a screen is still being swapped
- * in gets dropped entirely.
+ * Everything responds to pointerdown, not click. On a touchscreen click arrives
+ * 100-300 ms after the finger lands, which across four taps is most of a second
+ * of the station feeling broken.
  */
 function tap(el, fn) {
   el.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    if (el.disabled) return;
-    fn();
+    if (!el.disabled) fn();
   });
+}
+
+const renderUrl = (t, tpl) => `/api/render?text=${encodeURIComponent(t)}&template=${tpl}`;
+
+function setPreview(img, t) {
+  if (!t) { img.removeAttribute('src'); return; }
+  img.classList.add('loading');
+  img.onload = () => img.classList.remove('loading');
+  img.src = renderUrl(t, PREVIEW_TEMPLATE);
+}
+
+function dots(container, active) {
+  const total = cfg.questions.length + 2; // questions, then line, then look
+  container.innerHTML = Array.from({ length: total }, (_, i) =>
+    `<i class="${i === active ? 'on' : i < active ? 'done' : ''}"></i>`).join('');
+}
+
+// ---------------------------------------------------------------- questions
+
+function askQuestion() {
+  const q = cfg.questions[step];
+  $('askPrompt').textContent = q.prompt;
+  dots($('dots'), step);
+
+  $('askChoices').innerHTML = q.options
+    .map((o) => `<button data-id="${o.id}" class="${answers[q.id] === o.id ? 'sel' : ''}">${o.label}</button>`)
+    .join('');
+  [...$('askChoices').children].forEach((el) => tap(el, () => answer(q.id, el.dataset.id)));
+
+  // Show what the sticker looks like from the answers so far. On the first
+  // question there is nothing yet, so the stage stays empty rather than lying.
+  refreshPreview($('askPreview'));
+  go('ask');
+}
+
+async function refreshPreview(img) {
+  const res = await fetch('/api/lines', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answers }),
+  });
+  const data = await res.json();
+  $('askStage').classList.toggle('empty', !data.preview);
+  setPreview(img, data.preview);
+  return data;
+}
+
+async function answer(questionId, value) {
+  answers[questionId] = value;
+  resetIdle(IDLE_MS);
+
+  // Repaint selection immediately, then move on. The pause is deliberate: it
+  // shows the sticker updating, which is where "I made this" comes from when
+  // nobody is typing.
+  [...$('askChoices').children].forEach((el) => el.classList.toggle('sel', el.dataset.id === value));
+  const data = await refreshPreview($('askPreview'));
+
+  setTimeout(() => {
+    step += 1;
+    if (step < cfg.questions.length) askQuestion();
+    else showLines(data.lines);
+  }, 450);
+}
+
+// -------------------------------------------------------------- pick a line
+
+function showLines(fromAnswers) {
+  lines = fromAnswers;
+  line = lines[0] ?? '';
+  dots($('dots3'), cfg.questions.length);
+
+  const buttons = lines.map((l, i) =>
+    `<button data-line="${escapeAttr(l)}" class="${i === 0 ? 'sel' : ''}">${escapeHtml(l)}</button>`);
+  if (cfg.freeText) buttons.push('<button class="ghost" id="ownLine">None of these - write my own</button>');
+
+  $('lineChoices').innerHTML = buttons.join('');
+  [...$('lineChoices').children].forEach((el) => {
+    if (el.id === 'ownLine') return tap(el, () => { text = ''; renderEntry(); go('write'); });
+    tap(el, () => {
+      line = el.dataset.line;
+      [...$('lineChoices').children].forEach((o) => o.classList.toggle('sel', o === el));
+      setPreview($('linePreview'), line);
+      resetIdle(IDLE_MS);
+    });
+  });
+
+  setPreview($('linePreview'), line);
+  go('pickLine');
+}
+
+// ------------------------------------------------------------ pick a design
+
+async function showDesigns() {
+  const res = await fetch(`/api/options?text=${encodeURIComponent(line)}`);
+  if (!res.ok) return;
+  const data = await res.json();
+
+  line = data.text;
+  templates = data.templates;
+  templateId = templates[0]?.id ?? null;
+
+  dots($('dots4'), cfg.questions.length + 1);
+  $('designLine').textContent = `"${line}"`;
+  $('options').innerHTML = templates.map((t, i) => `
+    <button class="option ${i === 0 ? 'sel' : ''}" data-id="${t.id}">
+      <img src="${renderUrl(line, t.id)}" alt="${t.name}">
+      <div class="nm">${t.name}</div>
+    </button>`).join('');
+
+  [...$('options').children].forEach((el) => tap(el, () => {
+    templateId = el.dataset.id;
+    [...$('options').children].forEach((o) => o.classList.toggle('sel', o === el));
+    resetIdle(IDLE_MS);
+  }));
+
+  go('pickDesign');
+}
+
+// -------------------------------------------------------------------- ship
+
+async function ship() {
+  if (!templateId || !line) return;
+  $('shipBtn').disabled = true;
+  const shipped = { line, templateId };
+  try {
+    const res = await fetch('/api/submit', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: shipped.line, templateId: shipped.templateId, answers }),
+    });
+    if (!res.ok) throw new Error('submit failed');
+    $('doneImg').src = renderUrl(shipped.line, shipped.templateId);
+    $('doneMsg').className = '';
+    $('doneMsg').textContent = 'Your sticker is printing. Grab it from the volunteer.';
+  } catch {
+    $('doneImg').removeAttribute('src');
+    $('doneMsg').className = 'err';
+    $('doneMsg').textContent = 'That did not send. Tell the volunteer.';
+  } finally {
+    $('shipBtn').disabled = false;
+    go('done');
+    setTimeout(reset, 7000);
+  }
+}
+
+// --------------------------------------------------------- free text escape
+
+function renderEntry() {
+  $('entry').innerHTML = text
+    ? escapeHtml(text) + '<i class="caret"></i>'
+    : '<span class="placeholder">Start typing</span><i class="caret"></i>';
+  const left = cfg.maxChars - text.length;
+  $('count').textContent = `${left} left`;
+  $('count').classList.toggle('warn', left <= 10);
+  document.querySelectorAll('#kb button[data-char]').forEach((b) => { b.disabled = left <= 0; });
+  if ($('kbGo')) $('kbGo').disabled = text.trim().length === 0;
 }
 
 function key(ch) {
   if (text.length >= cfg.maxChars) return;
   text += ch;
-  render();
+  renderEntry();
   resetIdle(IDLE_MS);
 }
 
 function buildKeyboard() {
-  const rows = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
   const kb = $('kb');
   kb.innerHTML = '';
-  rows.forEach((row, i) => {
+  ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'].forEach((row, i) => {
     const div = document.createElement('div');
     div.className = 'row';
     [...row].forEach((ch) => {
       const b = document.createElement('button');
-      b.textContent = ch; b.dataset.char = ch;
-      tap(b, () => key(ch));
+      b.textContent = ch; b.dataset.char = ch; tap(b, () => key(ch));
       div.appendChild(b);
     });
     if (i === 2) {
       const del = document.createElement('button');
       del.className = 'wide'; del.textContent = 'DELETE';
-      tap(del, () => { text = text.slice(0, -1); render(); resetIdle(IDLE_MS); });
+      tap(del, () => { text = text.slice(0, -1); renderEntry(); resetIdle(IDLE_MS); });
       div.appendChild(del);
     }
     kb.appendChild(div);
@@ -213,137 +421,80 @@ function buildKeyboard() {
   last.appendChild(space);
 
   const goBtn = document.createElement('button');
-  goBtn.className = 'go'; goBtn.id = 'kbGo'; goBtn.textContent = 'SEE IT';
-  tap(goBtn, preview);
+  goBtn.className = 'go'; goBtn.id = 'kbGo'; goBtn.textContent = 'USE THIS';
+  tap(goBtn, () => { if (text.trim()) { line = text.trim(); showDesigns(); } });
   last.appendChild(goBtn);
   kb.appendChild(last);
 }
 
-async function preview() {
-  const res = await fetch('/api/preview', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  });
-  if (!res.ok) return;
-  const data = await res.json();
-  text = data.text;
-  options = data.options;
-  chosen = options[0]?.templateId ?? null;
+// ------------------------------------------------------------------ wiring
 
-  $('pickLine').textContent = data.dropped?.length
-    ? `"${data.text}"  -  emoji do not print, so they came out`
-    : `"${data.text}"`;
+const escapeHtml = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c]));
+const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
 
-  $('options').innerHTML = options.map((o, i) => `
-    <button class="option ${i === 0 ? 'sel' : ''}" data-id="${o.templateId}">
-      <img src="${o.dataUrl}" alt="${o.name}">
-      <div class="nm">${o.name}</div>
-    </button>`).join('');
+tap($('attract'), () => { step = 0; answers = {}; askQuestion(); });
+tap($('lineNext'), showDesigns);
+tap($('lineBack'), () => { step = cfg.questions.length - 1; askQuestion(); });
+tap($('designBack'), () => showLines(lines));
+tap($('shipBtn'), ship);
 
-  document.querySelectorAll('.option').forEach((el) => {
-    tap(el, () => {
-      chosen = el.dataset.id;
-      document.querySelectorAll('.option').forEach((o) => o.classList.toggle('sel', o === el));
-      resetIdle(IDLE_MS);
-    });
-  });
-  render();
-  go('pick');
-}
-
-$('shipBtn').onclick = async () => {
-  if (!chosen) return;
-  const picked = options.find((o) => o.templateId === chosen);
-  $('shipBtn').disabled = true;
-  try {
-    const res = await fetch('/api/submit', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, templateId: chosen }),
-    });
-    if (!res.ok) throw new Error('submit failed');
-    $('doneImg').src = picked.dataUrl;
-    $('doneMsg').className = '';
-    $('doneMsg').textContent = 'Your sticker is printing. Grab it from the volunteer.';
-  } catch {
-    $('doneImg').removeAttribute('src');
-    $('doneMsg').className = 'err';
-    $('doneMsg').textContent = 'That did not send. Tell the volunteer.';
-  } finally {
-    $('shipBtn').disabled = false;
-    text = ''; chosen = null; render();
-    go('done');
-  }
-};
-
-tap($('attract'), () => go('type'));
-['pointerdown'].forEach((e) => document.addEventListener(e, () => {
-  if (!$('attract').classList.contains('on')) resetIdle($('done').classList.contains('on') ? 7000 : IDLE_MS);
-}));
-
-// A physical keyboard types into the field like you would expect.
-//
-// This used to swallow every keydown, which locked nothing down that matters -
-// the real lockdown is the browser's own kiosk mode and the OS, not a JS
-// handler - and made the kiosk impossible to use or test on a laptop. What is
-// still blocked is only the routes out of the page.
+// A physical keyboard drives the whole thing: number keys pick options, Enter
+// advances, Escape goes back. There is no keyboard at the booth, but there is
+// one while building, and a volunteer can plug one in to unstick the station.
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || /^F\d+$/.test(e.key) || e.key === 'Tab') {
     e.preventDefault();
     return;
   }
 
-  const on = (id) => $(id).classList.contains('on');
+  if (on('attract')) { e.preventDefault(); step = 0; answers = {}; askQuestion(); return; }
 
-  if (on('attract')) {
-    e.preventDefault();
-    go('type');
-    // Waking with a letter should not swallow it - somebody who just starts
-    // typing expects their first character to land.
-    if ([...e.key].length === 1) key(e.key);
-    return;
-  }
-
-  if (on('type')) {
-    if (e.key === 'Enter') { e.preventDefault(); if (text.trim()) preview(); return; }
-    if (e.key === 'Backspace') { e.preventDefault(); text = text.slice(0, -1); render(); resetIdle(IDLE_MS); return; }
-    if (e.key === 'Escape') { e.preventDefault(); text = ''; render(); go('attract'); return; }
-    // Single printable characters only; the server sanitises whatever lands.
+  if (on('write')) {
+    if (e.key === 'Enter') { e.preventDefault(); if (text.trim()) { line = text.trim(); showDesigns(); } return; }
+    if (e.key === 'Backspace') { e.preventDefault(); text = text.slice(0, -1); renderEntry(); resetIdle(IDLE_MS); return; }
+    if (e.key === 'Escape') { e.preventDefault(); showLines(lines); return; }
     if ([...e.key].length === 1 && !e.repeat) { e.preventDefault(); key(e.key); }
     return;
   }
 
-  if (on('pick')) {
-    if (e.key === 'Enter') { e.preventDefault(); $('shipBtn').click(); return; }
-    if (e.key === 'Escape') { e.preventDefault(); go('type'); return; }
-    // Left/right to move between the three options.
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+  const list = on('ask') ? $('askChoices') : on('pickLine') ? $('lineChoices')
+             : on('pickDesign') ? $('options') : null;
+
+  if (list) {
+    const els = [...list.children];
+    const n = Number(e.key);
+    if (n >= 1 && n <= els.length) { e.preventDefault(); els[n - 1].dispatchEvent(new PointerEvent('pointerdown')); return; }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
-      const els = [...document.querySelectorAll('.option')];
       const at = els.findIndex((el) => el.classList.contains('sel'));
-      const next = els[(at + (e.key === 'ArrowRight' ? 1 : els.length - 1)) % els.length];
-      chosen = next.dataset.id;
-      els.forEach((el) => el.classList.toggle('sel', el === next));
-      resetIdle(IDLE_MS);
+      const fwd = e.key === 'ArrowRight' || e.key === 'ArrowDown';
+      els[(Math.max(at, 0) + (fwd ? 1 : els.length - 1)) % els.length]
+        .dispatchEvent(new PointerEvent('pointerdown'));
+      return;
     }
-    return;
   }
 
-  if (on('done') && e.key === 'Escape') go('attract');
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (on('pickLine')) showDesigns();
+    else if (on('pickDesign')) ship();
+    return;
+  }
+  if (e.key === 'Escape') { e.preventDefault(); reset(); }
 });
 
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('pointerdown', () => {
+  if (!on('attract')) resetIdle(on('done') ? 7000 : IDLE_MS);
+});
 
 fetch('/api/config').then((r) => r.json()).then((c) => {
   cfg = c;
-  // Kiosk mode hides the pointer. On by default only on the booth machine
-  // (STICKER_KIOSK=1); ?kiosk=1 / ?kiosk=0 overrides it for a quick look.
   const param = new URLSearchParams(location.search).get('kiosk');
   document.body.classList.toggle('kiosk', param === null ? !!c.kiosk : param === '1');
-  $('prompt').textContent = c.prompt;
-  $('attractPrompt').textContent = c.prompt;
   buildKeyboard();
-  render();
+  renderEntry();
 });
 </script>
 </body>

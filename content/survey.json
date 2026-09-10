@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "_note": "Everything an attendee can see is in this file. No code changes needed to rewrite the booth's voice. Run `npm run lines` after editing - it checks every line still sets legibly in at least three templates.",
+
+  "questions": [
+    {
+      "id": "who",
+      "prompt": "Which one are you today?",
+      "options": [
+        { "id": "ships",    "label": "The one who ships" },
+        { "id": "says_no",  "label": "The one who says no" },
+        { "id": "users",    "label": "The one who talks to users" },
+        { "id": "meetings", "label": "The one in every meeting" },
+        { "id": "new",      "label": "The one who just got here" }
+      ]
+    },
+    {
+      "id": "confession",
+      "prompt": "Now confess something.",
+      "options": [
+        { "id": "friday",    "label": "I ship on Fridays" },
+        { "id": "killed",    "label": "I killed my own feature" },
+        { "id": "graveyard", "label": "My backlog is a graveyard" },
+        { "id": "estimates", "label": "I still don't do estimates" },
+        { "id": "jira",      "label": "I've never opened Jira" },
+        { "id": "docs",      "label": "I actually read the docs" }
+      ]
+    }
+  ],
+
+  "_lines": "Keys are `who|confession`. A `*` matches any answer, so `*|friday` covers every identity. Specific beats general: an exact pair is offered first, then the confession-only lines, then the identity-only ones. Three get shown. Write the specific ones where the combination is actually funnier than its parts - that is where this stops feeling like mad libs.",
+
+  "lines": {
+    "*|friday": [
+      "Shipped it Friday. Slept fine.",
+      "Friday deploys, zero regrets",
+      "I ship on Fridays and I'd do it again"
+    ],
+    "*|killed": [
+      "I killed my own feature",
+      "Sunset my own baby. On purpose.",
+      "Killed it before it could hurt anyone"
+    ],
+    "*|graveyard": [
+      "My backlog is a graveyard",
+      "Every ticket is a tiny gravestone",
+      "The backlog knows what it did"
+    ],
+    "*|estimates": [
+      "I still don't do estimates",
+      "Ask me for an estimate. Go on.",
+      "It'll be done when it's done"
+    ],
+    "*|jira": [
+      "I've never opened Jira",
+      "Jira and I have an understanding",
+      "No Jira. No notes."
+    ],
+    "*|docs": [
+      "I actually read the docs",
+      "I read the docs. All of them.",
+      "Read the docs so you don't have to"
+    ],
+
+    "ships|friday":      ["Ships on Fridays. Sleeps fine."],
+    "ships|killed":      ["Shipped it, then killed it"],
+    "ships|graveyard":   ["I ship fast and bury the rest"],
+    "says_no|graveyard": ["My backlog is a graveyard and I dug every hole"],
+    "says_no|estimates": ["Said no to the estimate too"],
+    "says_no|friday":    ["Said no all week. Shipped on Friday."],
+    "users|killed":      ["Users told me. So I killed it."],
+    "users|docs":        ["I read the docs and I talked to a real user"],
+    "users|graveyard":   ["Talked to users. Buried half the backlog."],
+    "meetings|estimates":["I estimated it in a meeting. I was wrong."],
+    "meetings|graveyard":["We discussed the backlog. It is still a graveyard."],
+    "meetings|jira":     ["Never opened Jira. Attended every meeting about it."],
+    "new|jira":          ["Six weeks in, still haven't opened Jira"],
+    "new|docs":          ["New here. Read everything. Suspicious already."],
+    "new|friday":        ["New here. Already shipping on Fridays."],
+
+    "ships|*":    ["The one who ships"],
+    "says_no|*":  ["Professionally says no"],
+    "users|*":    ["I talked to an actual user"],
+    "meetings|*": ["I was in every meeting"],
+    "new|*":      ["New here. Already shipping."]
+  },
+
+  "fallback": [
+    "Shipped it",
+    "Ask me about my backlog",
+    "It shipped. Somehow."
+  ],
+
+  "_freeText": "The escape hatch on the last screen. Set to false to force everyone down the guided path.",
+  "freeText": true
+}

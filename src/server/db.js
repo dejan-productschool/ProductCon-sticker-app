@@ -32,6 +32,10 @@ db.exec(`
     reasons      TEXT    NOT NULL DEFAULT '',
     attempts     INTEGER NOT NULL DEFAULT 0,
     last_error   TEXT,
+    -- the survey answers behind this sticker, as JSON. Worth keeping: what a
+    -- few hundred PMs say they are is a more interesting artifact than the
+    -- stickers themselves.
+    answers      TEXT    NOT NULL DEFAULT '{}',
     created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
     decided_at   TEXT,
     printed_at   TEXT
@@ -41,11 +45,19 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_printed ON stickers(printed_at DESC);
 `);
 
+// Existing booth databases predate the survey. Add the column rather than
+// making anyone throw away a day's stickers.
+const columns = db.prepare(`PRAGMA table_info(stickers)`).all().map((c) => c.name);
+if (!columns.includes('answers')) {
+  db.exec(`ALTER TABLE stickers ADD COLUMN answers TEXT NOT NULL DEFAULT '{}'`);
+}
+
 const stmt = {
-  insert: db.prepare(`INSERT INTO stickers (text, template_id, png, flagged, reasons)
-                      VALUES (?, ?, ?, ?, ?)`),
+  insert: db.prepare(`INSERT INTO stickers (text, template_id, png, flagged, reasons, answers)
+                      VALUES (?, ?, ?, ?, ?, ?)`),
   byId: db.prepare(`SELECT * FROM stickers WHERE id = ?`),
   pngById: db.prepare(`SELECT png FROM stickers WHERE id = ?`),
+  answerTally: db.prepare(`SELECT answers FROM stickers WHERE status = 'printed'`),
   pending: db.prepare(`SELECT id, text, template_id, flagged, reasons, status, last_error, created_at
                        FROM stickers WHERE status IN ('pending','failed') ORDER BY id ASC`),
   inFlight: db.prepare(`SELECT id, text, template_id, status, attempts, last_error
@@ -62,8 +74,25 @@ const stmt = {
   requeueStuck: db.prepare(`UPDATE stickers SET status = 'approved' WHERE status = 'printing'`),
 };
 
-export const createSticker = ({ text, templateId, png, flagged, reasons }) =>
-  Number(stmt.insert.run(text, templateId, png, flagged ? 1 : 0, reasons.join(',')).lastInsertRowid);
+export const createSticker = ({ text, templateId, png, flagged, reasons, answers = {} }) =>
+  Number(stmt.insert.run(
+    text, templateId, png, flagged ? 1 : 0, reasons.join(','), JSON.stringify(answers)
+  ).lastInsertRowid);
+
+/** How the room answered, counted. Feeds the wall. */
+export const answerTally = () => {
+  const tally = {};
+  for (const row of stmt.answerTally.all()) {
+    let parsed;
+    try { parsed = JSON.parse(row.answers); } catch { continue; }
+    for (const [question, value] of Object.entries(parsed ?? {})) {
+      if (!value) continue;
+      tally[question] ??= {};
+      tally[question][value] = (tally[question][value] ?? 0) + 1;
+    }
+  }
+  return tally;
+};
 
 export const getSticker = (id) => stmt.byId.get(id);
 export const getPng = (id) => stmt.pngById.get(id)?.png;

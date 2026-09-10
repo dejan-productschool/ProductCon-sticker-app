@@ -2,10 +2,13 @@
 
 Booth kiosk for the Product School stand at ProductCon San Francisco.
 
-An attendee types one line, sees it set into three sticker designs, picks one and
-taps **Ship It**. A volunteer glances at it and taps approve. About twenty
-seconds later they peel a 50 mm sticker off the backing. A second screen shows a
-live wall of everything printed today.
+An attendee answers two questions, picks a line and a look, and taps **Ship It**.
+A volunteer glances at it and taps approve. About twenty seconds later they peel
+a 50 mm sticker off the backing. A second screen shows a live wall of everything
+printed today.
+
+Four taps, about twenty seconds, no typing. The sticker assembles on screen as
+they answer.
 
 Six designed templates, no generative AI at run time, everything running on one
 machine at the booth.
@@ -53,7 +56,6 @@ start-up banner prints the address to use.
 | `PORT` | `4173` | |
 | `STICKER_PRINTER` | system default | printer name |
 | `STICKER_PRINT_MODE` | by platform | `windows`, `macos` or `dry` |
-| `STICKER_PROMPT` | "What did you ship that you are proud of?" | the question on screen one |
 | `STICKER_DATA_DIR` | `./data` | where the SQLite file lives |
 | `STICKER_KIOSK` | off | `1` hides the pointer on the booth touchscreen |
 
@@ -86,6 +88,36 @@ comes out and write the answers into `docs/print-spike-results.md`.
 
 This is the only genuinely unknown part of the system. If the Brother fights
 back, week one is when you want to find out.
+
+## The copy
+
+Everything an attendee can see lives in [`content/survey.json`](content/survey.json)
+- the two questions, their options, and the hand-written line bank. A writer can
+rewrite the entire voice of the booth without touching code.
+
+Lines are keyed `who|confession`. A `*` matches any answer, so `*|friday` covers
+every identity; an exact pair beats the general one. Write the specific ones only
+where the combination is funnier than its parts - that is the difference between
+this and mad libs.
+
+```bash
+npm run lines
+```
+
+Checks every line against every template: that it fits, that at least three
+templates can set it above the legibility floor, and that all 30 answer
+combinations produce three distinct choices. Run it after editing the copy.
+
+### Why a survey and not a text field
+
+Typing was the bottleneck. An on-screen keyboard, for a stranger composing a
+sentence they have not thought of yet, runs 50-70 seconds - about 60 stickers an
+hour against a printer that can do 200. Four taps runs about 20. A blank page in
+a queue also produces "Hello" or a walk-away, and every way this can embarrass
+Product School came in through that field.
+
+The free-text escape hatch is still there for the minority who want it. Set
+`freeText: false` in the survey file to close it.
 
 ## Look at the templates
 
@@ -147,8 +179,13 @@ the booth machine with no fonts installed.
 - [ ] **The repo is public** and now carries the real wordmark and palette.
       Worth a nod from whoever owns the brand before pushing.
 - [ ] **The six designs**, reviewed by a designer. The software is the small part.
-- [ ] The prompt question, or a rotating set.
-- [ ] Whether the wall shows the text or only the artwork.
+- [ ] **The line bank.** 38 lines is enough to open with; it wants a writer and a
+      pass with people who will actually be at the booth. This is the critical
+      path, alongside the designs.
+- [ ] Whether the confession options rotate through the day, so the wall does
+      not fill with six repeated phrases.
+- [ ] Whether the wall shows the text, the artwork, or the answer tally -
+      `/api/wall` already returns the counts.
 - [ ] What happens to the typed lines after the event.
 - [ ] Offline fallback pack of pre-rendered designs.
 - [ ] Dress rehearsal: one hour, real people who are not on the team.

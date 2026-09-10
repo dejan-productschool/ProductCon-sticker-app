@@ -45,7 +45,8 @@ const BUBBLE = (() => {
 const ROUNDEL = (() => {
   const ring = px(C * 0.015);
   const r = px(C * 0.325);
-  return { cx: C / 2, cy: px(C * 0.415), r, ring, inner: px(r - ring * 2.4) };
+  const cy = px(C * 0.415);
+  return { cx: C / 2, cy, r, ring, inner: px(r - ring * 2.4) };
 })();
 
 /** The deck's faint 88px graph paper, scaled to the sticker. */
@@ -200,4 +201,4 @@ export const TEMPLATES = [
 
 export const TEMPLATE_IDS = TEMPLATES.map((t) => t.id);
 export const getTemplate = (id) => TEMPLATES.find((t) => t.id === id);
-export const templateLockup = (t) => lockupSvg(t.lockup);
+export const templateFurniture = (t) => lockupSvg(t.lockup);

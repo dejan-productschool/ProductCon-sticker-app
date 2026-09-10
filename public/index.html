@@ -38,6 +38,27 @@
   .dots i.done { background:var(--muted); }
 
   .cols { flex:1; display:flex; gap:3vw; min-height:0; }
+  /* Phones, which is now nearly everyone: one column, choices first. */
+  @media (max-width: 820px) {
+    .screen { padding:2.6vh 5vw; }
+    .cols { flex-direction:column; gap:2.4vh; }
+    .choices { flex:none; gap:1.1vh; }
+    .choices button { padding:1.8vh 2.2vh; font-size:17px; }
+    .stage { flex:none; }
+    .sofar { width:100%; flex-direction:row; gap:2vw; }
+    .sofar .slot { flex:1; padding:1.4vh 1.6vh; font-size:13px; }
+    .sofar .tail { display:none; }
+    /* Content sits at the top and the buttons stay at the bottom, rather than
+       everything floating in the middle of a tall phone screen. */
+    #reveal, #ask { justify-content:flex-start; }
+    .options { flex:none; align-content:start; grid-template-columns:1fr 1fr 1fr; gap:2.4vw; }
+    .option .nm { font-size:12px; }
+    .actions { margin-top:auto; gap:2.4vw; }
+    .actions button { min-height:64px; font-size:14px; letter-spacing:.04em; }
+    .prompt { font-size:20px; }
+    .ownline { margin-top:1vh; }
+    #wait img { width:52vw; }
+  }
   .choices { flex:1.35; display:flex; flex-direction:column; gap:1.4vh; justify-content:center; min-width:0; }
   .choices button {
     width:100%; text-align:left; border:2px solid var(--line); border-radius:16px;
@@ -111,6 +132,24 @@
   #done p { font-size:clamp(20px,2.6vw,40px); color:var(--muted); margin:0; max-width:24ch; }
   #done img { width:min(38vh,46vw); border-radius:16px; }
   .err { color:var(--brand); font-weight:700; }
+
+  /* ---- queue + ticket ---- */
+  #wait, #blocked { align-items:center; justify-content:center; text-align:center; gap:2.4vh; }
+  .ticketwrap { display:flex; flex-direction:column; align-items:center; gap:2.2vh; max-width:560px; }
+  .ticketno small { display:block; color:var(--muted); font-size:12px; font-weight:800; letter-spacing:.16em; }
+  .ticketno b { display:block; font-size:clamp(52px,12vw,120px); font-weight:900; line-height:1;
+                letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
+  #wait img { width:min(30vh,62vw); border-radius:14px; }
+  #wait h2, #blocked h2 { font-size:clamp(24px,4.6vw,54px); font-weight:900; margin:0; letter-spacing:-.02em; }
+  #wait p, #blocked p { font-size:clamp(15px,2.2vw,26px); color:var(--muted); margin:0; max-width:26ch; }
+  #wait .fine { font-size:clamp(12px,1.6vw,18px); }
+  .bar { width:min(420px,80vw); height:8px; border-radius:99px; background:var(--line); overflow:hidden; }
+  .bar i { display:block; height:100%; width:0; background:var(--brand); border-radius:99px;
+           transition:width .6s ease; }
+  #wait.ready h2 { color:#4ADE80; }
+  #blocked h2 { color:var(--brand); }
+  #blocked .ship { min-height:64px; border:0; border-radius:16px; color:#fff;
+                   font:800 16px/1 inherit; letter-spacing:.06em; padding:0 4vh; }
 </style>
 </head>
 <body>
@@ -157,6 +196,23 @@
   <div class="kb" id="kb"></div>
 </section>
 
+<section id="wait" class="screen">
+  <div class="ticketwrap">
+    <div class="ticketno"><small>YOUR NUMBER</small><b id="ticketNo">-</b></div>
+    <img id="waitImg" alt="">
+    <h2 id="waitState">In the queue</h2>
+    <p id="waitDetail"></p>
+    <div class="bar"><i id="waitBar"></i></div>
+    <p class="fine" id="waitFine">Keep this screen. It updates on its own.</p>
+  </div>
+</section>
+
+<section id="blocked" class="screen">
+  <h2 id="blockedTitle">Hold on</h2>
+  <p id="blockedMsg"></p>
+  <button class="ship" id="blockedRetry" style="max-width:520px;margin-top:3vh">TRY AGAIN</button>
+</section>
+
 <section id="done" class="screen">
   <img id="doneImg" alt="">
   <h2>SHIPPED</h2>
@@ -175,15 +231,45 @@ let templates = [];
 let templateId = null;
 let text = '';              // free-text path only
 let idleTimer;
+let ticketId = null;
+let pollTimer = null;
+
+/**
+ * A stable id for this phone.
+ *
+ * The queue uses it to stop one person taking twenty slots, and to reunite
+ * somebody with their ticket if they close the tab. It is a random string in
+ * this browser's own storage - it identifies a device to the booth for the
+ * afternoon, and is not tied to a person.
+ */
+const deviceId = (() => {
+  try {
+    let id = localStorage.getItem('shipit.device');
+    if (!id) {
+      id = (crypto.randomUUID?.() ?? String(Math.random()).slice(2)) + '';
+      localStorage.setItem('shipit.device', id);
+    }
+    return id;
+  } catch {
+    // Private browsing. One session, no memory - still better than refusing.
+    return (crypto.randomUUID?.() ?? String(Math.random()).slice(2)) + '';
+  }
+})();
+
+const rememberTicket = (id) => { try { localStorage.setItem('shipit.ticket', String(id)); } catch {} };
+const forgetTicket = () => { try { localStorage.removeItem('shipit.ticket'); } catch {} };
+const savedTicket = () => { try { return Number(localStorage.getItem('shipit.ticket')) || null; } catch { return null; } };
 
 const $ = (id) => document.getElementById(id);
-const SCREENS = ['attract', 'ask', 'reveal', 'write', 'done'];
+const SCREENS = ['attract', 'ask', 'reveal', 'write', 'wait', 'blocked', 'done'];
 const on = (id) => $(id).classList.contains('on');
 const line = () => (text ? text : lines[lineAt] ?? '');
 
 function go(name) {
   SCREENS.forEach((s) => $(s).classList.toggle('on', s === name));
-  resetIdle(name === 'attract' ? null : name === 'done' ? 7000 : IDLE_MS);
+  // A phone is nobody else's turn - the idle reset only makes sense while
+  // somebody is part-way through choosing, never while they hold a ticket.
+  resetIdle(['attract', 'wait', 'blocked', 'done'].includes(name) ? null : IDLE_MS);
 }
 
 // The attract loop is what keeps the station usable when somebody walks off
@@ -196,6 +282,9 @@ function resetIdle(ms) {
 
 function reset() {
   step = 0; answers = {}; lines = []; lineAt = 0; templateId = null; text = '';
+  ticketId = null;
+  stopPolling();
+  forgetTicket();
   go('attract');
 }
 
@@ -332,25 +421,127 @@ async function ship() {
   const current = line();
   if (!templateId || !current) return;
   $('shipBtn').disabled = true;
+
+  // A stable id for this attempt. If the phone loses signal and retries, the
+  // booth hands back the same ticket instead of printing a second sticker.
+  const requestId = (crypto.randomUUID?.() ?? `${deviceId}-${Date.now()}`);
+
   try {
     const res = await fetch('/api/submit', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: current, templateId, answers }),
+      body: JSON.stringify({ text: current, templateId, answers, deviceId, requestId }),
     });
-    if (!res.ok) throw new Error('submit failed');
-    $('doneImg').src = renderUrl(current, templateId);
-    $('doneMsg').className = '';
-    $('doneMsg').textContent = 'Your sticker is printing. Grab it from the volunteer.';
+    const data = await res.json();
+
+    if (!res.ok) return showBlocked(data);
+
+    ticketId = data.ticketId;
+    rememberTicket(ticketId);
+    $('waitImg').src = renderUrl(current, templateId);
+    showTicket(data);
+    startPolling();
   } catch {
-    $('doneImg').removeAttribute('src');
-    $('doneMsg').className = 'err';
-    $('doneMsg').textContent = 'That did not send. Tell the volunteer.';
+    showBlocked({ error: 'offline' });
   } finally {
     $('shipBtn').disabled = false;
-    go('done');
-    setTimeout(reset, 7000);
   }
 }
+
+// ------------------------------------------------------------ the queue
+
+const BLOCKED_COPY = {
+  'at-capacity': ['We are at capacity', 'Too many stickers already queued to promise you one. Try again in a few minutes.'],
+  'printer-down': ['Printer paused', 'It is being looked at. Nothing already queued is lost.'],
+  'already-queued': ['You are already in the queue', 'One sticker at a time, so everybody gets one.'],
+  'cooldown': ['You just had one', 'Give someone else a turn - you can go again shortly.'],
+  'offline': ['Cannot reach the booth', 'Check you are still on the venue network, then try again.'],
+};
+
+function showBlocked(data) {
+  const [title, msg] = BLOCKED_COPY[data.error] ?? ['Something went wrong', 'Tell someone at the booth.'];
+  $('blockedTitle').textContent = title;
+  $('blockedMsg').textContent = data.capacity?.state === 'busy' || data.capacity?.state === 'closed'
+    ? `${msg} Currently ${data.capacity.wait}.`
+    : data.retryInSeconds
+      ? `${msg} About ${Math.ceil(data.retryInSeconds / 60)} more minutes.`
+      : msg;
+
+  // If they already hold a ticket, take them back to it rather than stranding
+  // them on an error screen.
+  if (data.ticketId) {
+    ticketId = data.ticketId;
+    rememberTicket(ticketId);
+    $('blockedRetry').textContent = 'SEE MY STICKER';
+  } else {
+    $('blockedRetry').textContent = 'TRY AGAIN';
+  }
+  go('blocked');
+}
+
+function showTicket(t) {
+  $('ticketNo').textContent = `#${t.id ?? ticketId}`;
+  const wrap = $('wait');
+
+  if (t.status === 'printed') {
+    wrap.classList.add('ready');
+    $('waitState').textContent = 'Ready';
+    $('waitDetail').textContent = 'Collect it from the booth. Show this number.';
+    $('waitBar').style.width = '100%';
+    $('waitFine').textContent = 'Thanks for shipping.';
+    stopPolling();
+  } else if (t.status === 'rejected') {
+    wrap.classList.remove('ready');
+    $('waitState').textContent = 'Not this one';
+    $('waitDetail').textContent = 'The booth passed on that sticker. Have another go.';
+    $('waitBar').style.width = '0';
+    $('waitFine').textContent = '';
+    stopPolling();
+  } else if (!t.printerOk) {
+    wrap.classList.remove('ready');
+    $('waitState').textContent = 'Printer paused';
+    $('waitDetail').textContent = 'Yours is safe in the queue. It will print as soon as the printer is back.';
+    $('waitFine').textContent = 'Keep this screen.';
+  } else {
+    wrap.classList.remove('ready');
+    $('waitState').textContent = t.status === 'printing' ? 'Printing now' : 'In the queue';
+    $('waitDetail').textContent = t.position > 1
+      ? `${t.position - 1} ahead of you - ${t.wait}.`
+      : 'You are next.';
+    $('waitFine').textContent = 'Keep this screen. It updates on its own.';
+    // Position 1 is nearly there; a long queue starts near empty.
+    const pct = Math.max(4, 100 - Math.min(100, (t.position - 1) * 6));
+    $('waitBar').style.width = `${pct}%`;
+  }
+  go('wait');
+}
+
+/**
+ * Polling, not SSE.
+ *
+ * A phone in a pocket suspends its tab and silently drops an event stream. A
+ * poll that resumes when the screen comes back is unglamorous and survives it.
+ */
+function startPolling() {
+  stopPolling();
+  const tick = async () => {
+    if (!ticketId || document.hidden) return;
+    try {
+      const res = await fetch(`/api/ticket/${ticketId}`);
+      if (res.ok) showTicket(await res.json());
+    } catch { /* the booth will still be there in three seconds */ }
+  };
+  pollTimer = setInterval(tick, 3000);
+  tick();
+}
+
+function stopPolling() {
+  clearInterval(pollTimer);
+  pollTimer = null;
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && ticketId) startPolling();
+});
 
 // --------------------------------------------------------- free text escape
 
@@ -418,6 +609,18 @@ tap($('revealBack'), () => { text = ''; step = cfg.questions.length - 1; askQues
 tap($('another'), anotherLine);
 tap($('ownLine'), () => { text = ''; renderEntry(); go('write'); });
 tap($('shipBtn'), ship);
+tap($('blockedRetry'), () => {
+  if (ticketId) { showTicketFromServer(); startPolling(); }
+  else showReveal();
+});
+
+async function showTicketFromServer() {
+  try {
+    const res = await fetch(`/api/ticket/${ticketId}`);
+    if (res.ok) return showTicket(await res.json());
+  } catch {}
+  reset();
+}
 
 // A physical keyboard drives the whole thing: number keys pick options, Enter
 // advances, Escape goes back. There is no keyboard at the booth, but there is
@@ -476,6 +679,19 @@ fetch('/api/config').then((r) => r.json()).then((c) => {
   document.body.classList.toggle('kiosk', param === null ? !!c.kiosk : param === '1');
   buildKeyboard();
   renderEntry();
+
+  // Somebody who closed the tab and scanned again should land back on their
+  // ticket, not at the start of a survey they already finished.
+  const held = savedTicket();
+  if (held) {
+    ticketId = held;
+    fetch(`/api/ticket/${held}`).then((r) => (r.ok ? r.json() : null)).then((t) => {
+      if (!t || t.status === 'rejected') return forgetTicket();
+      $('waitImg').src = renderUrl(t.text, t.templateId);
+      showTicket(t);
+      if (t.status !== 'printed') startPolling();
+    }).catch(() => {});
+  }
 });
 </script>
 </body>

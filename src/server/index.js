@@ -15,11 +15,34 @@ import { CANVAS, PRINT_SECONDS } from '../compose/constants.js';
 import { USING_PLACEHOLDER_LOCKUP } from '../compose/brand.js';
 import { printSticker, printMode, listPrinters, printerName } from '../print/printer.js';
 import * as store from './db.js';
+import { admit, admitAndInsert, capacity, ticketStatus, SECONDS_PER_STICKER, DEVICE_COOLDOWN_MIN, formatWait } from './queue.js';
+import { qrSvg, qrInfo } from '../compose/qr.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const PORT = Number(process.env.PORT ?? 4173);
 // Hides the pointer on the booth touchscreen. Off while building on a laptop.
 const KIOSK = process.env.STICKER_KIOSK === '1';
+
+/**
+ * What still needs a volunteer tap.
+ *
+ * 'guided' - lines from the bank print straight through, free text waits.
+ * 'none'   - everything waits for a tap.
+ * 'all'    - nothing waits. Only sane if free text is off.
+ *
+ * The tap was a safeguard against a text field. With the guided flow there is
+ * nothing to moderate - every line was written in advance - and at one sticker
+ * every 20 seconds a human gate becomes the thing that jams the booth. Free
+ * text is the only path that can still produce a surprise, so that is the only
+ * path that still stops.
+ */
+const AUTO_APPROVE = process.env.STICKER_AUTO_APPROVE ?? 'guided';
+
+// Where phones are told to go. On a booth LAN this is the machine's own
+// address; behind a tunnel or a deployment, set it explicitly.
+const LAN_IP = () => Object.values(networkInterfaces()).flat()
+  .find((i) => i && i.family === 'IPv4' && !i.internal)?.address;
+const JOIN_URL = () => process.env.STICKER_JOIN_URL ?? `http://${LAN_IP() ?? 'localhost'}:${PORT}`;
 
 const app = express();
 app.use(express.json({ limit: '64kb' }));
@@ -53,6 +76,9 @@ app.get('/api/events', (req, res) => {
 app.get('/api/config', (req, res) => {
   res.json({
     kiosk: KIOSK,
+    joinUrl: JOIN_URL(),
+    secondsPerSticker: SECONDS_PER_STICKER,
+    cooldownMinutes: DEVICE_COOLDOWN_MIN,
     maxChars: MAX_CHARS,
     canvas: CANVAS,
     questions: QUESTIONS,
@@ -98,26 +124,85 @@ app.get('/api/render', async (req, res) => {
   res.type('png').set('Cache-Control', 'public, max-age=600').send(png);
 });
 
-/** Ship It. Composes the final PNG and puts it in front of a volunteer. */
+/** What the booth can promise right now. The phone checks this before starting. */
+app.get('/api/capacity', (req, res) => {
+  const cap = capacity(printerHealth);
+  const deviceId = String(req.query.deviceId ?? '');
+  res.json({
+    ...cap,
+    wait: formatWait(cap.waitSeconds),
+    yourTicket: deviceId ? store.liveTicketFor(deviceId) ?? null : null,
+  });
+});
+
+/** A phone watching its own sticker. Polled, not streamed - phones sleep. */
+app.get('/api/ticket/:id', (req, res) => {
+  const status = ticketStatus(Number(req.params.id), printerHealth);
+  if (!status) return res.sendStatus(404);
+  res.json({ ...status, wait: formatWait(status.waitSeconds) });
+});
+
+/**
+ * Ship It.
+ *
+ * Refuses before it renders. A phone that cannot be served should find out in
+ * a few milliseconds, not after the booth has spent time composing a PNG it
+ * will never print.
+ */
 app.post('/api/submit', async (req, res) => {
+  const deviceId = String(req.body?.deviceId ?? '').slice(0, 64);
+  const requestId = String(req.body?.requestId ?? '').slice(0, 64);
+  if (!deviceId || !requestId) return res.status(400).json({ error: 'missing-device' });
+
+  // Same request twice - a retry on a flaky phone connection, or a double tap.
+  // Hand back the ticket that already exists rather than printing twice.
+  const existing = store.getByRequest(requestId);
+  if (existing) {
+    return res.json({ ticketId: existing.id, duplicate: true, ...ticketStatus(existing.id, printerHealth) });
+  }
+
+  const refuse = (gate) => res.status(gate.reason === 'already-queued' ? 409 : 503).json({
+    error: gate.reason,
+    ticketId: gate.ticketId ?? null,
+    retryInSeconds: gate.retryInSeconds ?? null,
+    capacity: { ...gate.capacity, wait: formatWait(gate.capacity.waitSeconds) },
+  });
+
+  // Cheap refusal first, so a phone that cannot be served finds out in a few
+  // milliseconds rather than after the booth composes a PNG it will not print.
+  const early = admit(deviceId, printerHealth);
+  if (!early.ok) return refuse(early);
+
   const clean = sanitise(req.body?.text);
   const templateId = String(req.body?.templateId ?? '');
-
   if (clean.text.length === 0) return res.status(400).json({ error: 'empty' });
   if (!getTemplate(templateId)) return res.status(400).json({ error: 'unknown-template' });
 
-  const { png, meta } = await compose(clean.text, templateId, { skipSanitise: true });
-  const id = store.createSticker({
-    text: clean.text,
-    templateId,
-    png,
-    flagged: !clean.ok,
-    reasons: clean.reasons,
-    answers: req.body?.answers ?? {},
-  });
+  const answers = req.body?.answers ?? {};
+  const guided = isComplete(answers) && linesFor(answers).includes(clean.text);
 
-  broadcast('queued', { id, text: clean.text, templateId, flagged: !clean.ok });
-  res.json({ id, queued: true, fontSize: meta.fontSize });
+  const { png } = await compose(clean.text, templateId, { skipSanitise: true });
+
+  // Authoritative check, in the same tick as the insert. The early check above
+  // is only an optimisation: by the time this PNG finished rendering, other
+  // requests may have filled the queue.
+  const gate = admitAndInsert(deviceId, printerHealth, () => store.createSticker({
+    text: clean.text, templateId, png,
+    flagged: !clean.ok, reasons: clean.reasons, answers, deviceId, requestId,
+  }));
+  if (!gate.ok) return refuse(gate);
+  const id = gate.id;
+
+  // Only a line nobody typed can skip the volunteer.
+  const autoApprove = AUTO_APPROVE === 'all'
+    || (AUTO_APPROVE === 'guided' && guided && clean.ok);
+  if (autoApprove) {
+    store.approve(id);
+    pump();
+  }
+
+  broadcast('queued', { id, text: clean.text, templateId, flagged: !clean.ok, auto: autoApprove });
+  res.json({ ticketId: id, duplicate: false, guided, autoApproved: autoApprove, ...ticketStatus(id, printerHealth) });
 });
 
 app.get('/api/sticker/:id.png', (req, res) => {
@@ -129,11 +214,14 @@ app.get('/api/sticker/:id.png', (req, res) => {
 // ------------------------------------------------------------- approve tablet
 
 app.get('/api/queue', (req, res) => {
+  const cap = capacity(printerHealth);
   res.json({
     pending: store.listPending(),
     inFlight: store.listInFlight(),
     counts: store.statusCounts(),
     printer: printerHealth,
+    capacity: { ...cap, wait: formatWait(cap.waitSeconds) },
+    autoApprove: AUTO_APPROVE,
   });
 });
 
@@ -162,6 +250,22 @@ app.get('/api/wall', (req, res) => {
     count: store.printedCount(),
     tally: store.answerTally(),
   });
+});
+
+/** The QR the booth puts on a screen or a poster. */
+app.get('/api/join.svg', (req, res) => {
+  const url = JOIN_URL();
+  const size = Math.min(2000, Math.max(200, Number(req.query.size) || 900));
+  res.type('svg').send(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">` +
+    qrSvg(url, { x: 0, y: 0, size, dark: '#07182C', light: '#FCFCFC', radius: Math.round(size * 0.02) }) +
+    `</svg>`
+  );
+});
+
+app.get('/api/join', (req, res) => {
+  const url = JOIN_URL();
+  res.json({ url, ...qrInfo(url) });
 });
 
 // ------------------------------------------------------------------- printing
@@ -234,6 +338,9 @@ app.get('/api/health', async (req, res) => {
     counts: store.statusCounts(),
     placeholderBrand: USING_PLACEHOLDER_LOCKUP,
     printSeconds: PRINT_SECONDS,
+    capacity: capacity(printerHealth),
+    autoApprove: AUTO_APPROVE,
+    joinUrl: JOIN_URL(),
   });
 });
 
@@ -249,12 +356,15 @@ app.listen(PORT, () => {
   console.log(`
   Ship It sticker station
   -----------------------
-  kiosk    http://localhost:${PORT}/
+  phone    http://localhost:${PORT}/
+  join QR  http://localhost:${PORT}/join/
   approve  http://localhost:${PORT}/approve/${lan ? `   (tablet: http://${lan}:${PORT}/approve/)` : ''}
   wall     http://localhost:${PORT}/wall/
 
   printer  ${printMode()}${printerName() ? ` -> "${printerName()}"` : ' (system default)'}
-  survey   ${QUESTIONS.map((q) => `${q.id} (${q.options.length})`).join(' -> ')}${FREE_TEXT_ALLOWED ? ', free text on' : ''}${USING_PLACEHOLDER_LOCKUP ? '\n\n  ! Brand assets are placeholders. See src/compose/brand.js.' : ''}
+  join     ${JOIN_URL()}   (QR at /join/)
+  survey   ${QUESTIONS.map((q) => `${q.id} (${q.options.length})`).join(' -> ')}${FREE_TEXT_ALLOWED ? ', free text on' : ''}
+  queue    ${SECONDS_PER_STICKER}s per sticker, auto-approve: ${AUTO_APPROVE}${USING_PLACEHOLDER_LOCKUP ? '\n\n  ! Brand assets are placeholders. See src/compose/brand.js.' : ''}
 `);
   pump();
 });

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scan to ship</title>
+<style>
+  :root { --ink:#0A0A0B; --navy:#07182C; --paper:#FCFCFC; --brand:#2758E2; --muted:#8A8FA0; --line:#23252E; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; overflow:hidden; }
+  body { background:var(--ink); color:var(--paper); display:flex; flex-direction:column;
+         font:400 16px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
+  header { padding:4vh 5vw 0; }
+  h1 { font-size:clamp(34px,6.5vw,110px); font-weight:900; letter-spacing:-.03em; margin:0; line-height:.95; }
+  h1 em { color:var(--brand); font-style:normal; }
+  main { flex:1; display:flex; align-items:center; gap:5vw; padding:3vh 5vw; min-height:0; }
+  .qr { background:var(--paper); border-radius:3vh; padding:2.4vh; flex:0 0 auto; }
+  .qr img { display:block; width:min(46vh,42vw); height:auto; }
+  .steps { flex:1; display:flex; flex-direction:column; gap:2.4vh; min-width:0; }
+  .step { display:flex; gap:2.2vh; align-items:baseline; }
+  .step b { color:var(--brand); font-size:clamp(22px,3vw,54px); font-weight:900; font-variant-numeric:tabular-nums; }
+  .step span { font-size:clamp(17px,2.2vw,40px); font-weight:700; letter-spacing:-.01em; }
+  .url { margin-top:1vh; color:var(--muted); font-size:clamp(13px,1.5vw,24px); font-weight:600;
+         word-break:break-all; }
+  footer { padding:0 5vw 4vh; display:flex; align-items:center; gap:2vw; }
+  .state { font-size:clamp(15px,1.9vw,32px); font-weight:800; padding:1.2vh 2.4vh; border-radius:99px; }
+  .open   { background:#123A28; color:#4ADE80; }
+  .busy   { background:#3A2A12; color:#F59A3F; }
+  .closed, .down { background:#3A1518; color:#FB7185; }
+  .count { margin-left:auto; text-align:right; }
+  .count b { display:block; font-size:clamp(28px,4.4vw,80px); font-weight:900; line-height:1;
+             font-variant-numeric:tabular-nums; }
+  .count small { color:var(--muted); font-size:clamp(11px,1.1vw,18px); font-weight:700; letter-spacing:.14em; }
+</style>
+</head>
+<body>
+<header><h1>SCAN TO <em>SHIP</em></h1></header>
+<main>
+  <div class="qr"><img id="qr" alt="Scan to open the sticker app"></div>
+  <div class="steps">
+    <div class="step"><b>1</b><span>Point your camera here</span></div>
+    <div class="step"><b>2</b><span>Answer two questions</span></div>
+    <div class="step"><b>3</b><span>Pick your look, tap Ship It</span></div>
+    <div class="step"><b>4</b><span>Collect it from the booth</span></div>
+    <div class="url" id="url"></div>
+  </div>
+</main>
+<footer>
+  <span class="state open" id="state">Loading</span>
+  <div class="count"><b id="printed">0</b><small>SHIPPED TODAY</small></div>
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+// Cache-bust once at load; the QR never changes after that.
+$('qr').src = '/api/join.svg?size=900&v=' + Date.now();
+
+fetch('/api/join').then((r) => r.json()).then((j) => { $('url').textContent = j.url; });
+
+// The state pill is the honest bit. If the booth cannot take more work, the
+// people walking past should know before they scan, not after they answer.
+async function refresh() {
+  try {
+    const [cap, wall] = await Promise.all([
+      fetch('/api/capacity').then((r) => r.json()),
+      fetch('/api/wall').then((r) => r.json()),
+    ]);
+    $('state').className = 'state ' + cap.state;
+    $('state').textContent = {
+      open: cap.depth ? `Open - ${cap.wait} wait` : 'Open - no queue',
+      busy: `Busy - ${cap.wait} wait`,
+      closed: 'At capacity - back in a few minutes',
+      down: 'Printer paused - hold on',
+    }[cap.state];
+    $('printed').textContent = wall.count;
+  } catch {
+    $('state').className = 'state down';
+    $('state').textContent = 'Booth offline';
+  }
+}
+setInterval(refresh, 5000);
+refresh();
+</script>
+</body>
+</html>

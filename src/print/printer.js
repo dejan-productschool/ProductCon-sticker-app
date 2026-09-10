@@ -84,7 +84,13 @@ export async function printSticker(png, {
   const path = await tempPng(png);
 
   if (mode === 'dry') {
-    return { ok: true, ms: Date.now() - started, mode, detail: `dry run, wrote ${path}` };
+    // A dry run that returns instantly makes the queue look infinitely fast,
+    // which hides exactly the behaviour a rehearsal is meant to test. Set
+    // STICKER_DRY_MS to the real hand-to-hand time and the booth behaves like
+    // the booth.
+    const fake = Number(process.env.STICKER_DRY_MS ?? 0);
+    if (fake > 0) await new Promise((r) => setTimeout(r, fake));
+    return { ok: true, ms: Date.now() - started, mode, detail: `dry run (${fake}ms), wrote ${path}` };
   }
 
   // Say "there is no printer" rather than surfacing the driver's version of it.

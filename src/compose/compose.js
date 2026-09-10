@@ -6,7 +6,7 @@
 
 import sharp from 'sharp';
 import { CANVAS, DPI, MIN_LEGIBLE_PX } from './constants.js';
-import { getTemplate, templateLockup, TEMPLATES, TEMPLATE_IDS } from './templates.js';
+import { getTemplate, templateFurniture, TEMPLATES, TEMPLATE_IDS } from './templates.js';
 import { fitText, textToSvg } from './typeset.js';
 import { sanitise } from './sanitise.js';
 
@@ -27,7 +27,7 @@ export function composeSvg(text, templateId) {
     template.behind(),
     textSvg,
     template.above ? template.above() : '',
-    templateLockup(template),
+    templateFurniture(template),
     `</svg>`,
   ].join('\n');
 

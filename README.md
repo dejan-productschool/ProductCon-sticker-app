@@ -44,8 +44,9 @@ npm install
 npm start
 ```
 
-    kiosk    http://localhost:4173/
-    approve  http://localhost:4173/approve/     <- the tablet
+    phone    http://localhost:4173/            <- what the QR opens
+    join QR  http://localhost:4173/join/        <- on a booth screen or printed
+    approve  http://localhost:4173/approve/     <- the volunteer's tablet
     wall     http://localhost:4173/wall/
 
 The approve tablet and the wall point at the booth machine over the LAN; the
@@ -58,6 +59,13 @@ start-up banner prints the address to use.
 | `STICKER_PRINT_MODE` | by platform | `windows`, `macos` or `dry` |
 | `STICKER_DATA_DIR` | `./data` | where the SQLite file lives |
 | `STICKER_KIOSK` | off | `1` hides the pointer on the booth touchscreen |
+| `STICKER_JOIN_URL` | the machine's LAN address | what the QR encodes |
+| `STICKER_SECONDS` | `20` | hand-to-hand seconds per sticker, from the print spike |
+| `STICKER_BUSY_MIN` | `5` | wait past which the booth says it is busy |
+| `STICKER_CLOSED_MIN` | `12` | wait past which it stops accepting |
+| `STICKER_COOLDOWN_MIN` | `10` | before the same phone can go again |
+| `STICKER_AUTO_APPROVE` | `guided` | `guided`, `none` or `all` |
+| `STICKER_DRY_MS` | `0` | fake print duration, for rehearsing without a printer |
 
 A physical keyboard works everywhere: letters type, Enter advances, Backspace
 deletes, Escape goes back, arrows move between the three options. There is no
@@ -125,6 +133,16 @@ Product School came in through that field.
 The free-text escape hatch is still there for the minority who want it. Set
 `freeText: false` in the survey file to close it.
 
+## Rehearsing without a printer
+
+```bash
+STICKER_PRINT_MODE=dry STICKER_DRY_MS=20000 npm start
+```
+
+A dry run that returns instantly makes the queue look infinitely fast and hides
+the behaviour a rehearsal exists to test. `STICKER_DRY_MS` makes the fake
+printer take as long as the real one.
+
 ## Look at the templates
 
 ```bash
@@ -163,6 +181,40 @@ the booth machine with no fonts installed.
   convenience, not a control.
 - **Everything runs locally.** No cloud calls in the hot path.
 
+## The queue
+
+One printer, a room full of phones. The printer does one sticker roughly every
+20 seconds and that number does not move, so the only real decision is what
+happens when more people want stickers than the hardware can make.
+
+The failure everyone pictures is a jam. The likelier one is quieter: the booth
+accepts 400 submissions in twenty minutes, tells everybody "printing now", and
+by hour two there are 180 people holding phones that lied to them. So the booth
+would rather turn somebody away honestly than take a job it cannot finish.
+
+- **It says no before you start.** The join screen shows the real wait. Past
+  `STICKER_CLOSED_MIN` of queued work, submissions are refused with "come back
+  in a few minutes" rather than accepted and disappointed.
+- **Admission is atomic.** The capacity check and the insert happen in the same
+  tick, so a burst of simultaneous taps cannot all read the same queue depth and
+  all decide there is room. Sixty phones tapping at once gets exactly as many
+  through as there is room for.
+- **One sticker per phone at a time**, then a cooldown, so the queue is not eaten
+  by a handful of people discovering they can resubmit.
+- **Retries are free.** Every submission carries a request id; a phone retrying
+  on a flaky connection gets its existing ticket back rather than a second
+  sticker.
+- **Everyone can see their place.** A ticket number, position, and an honest
+  wait, polled rather than streamed - a phone in a pocket suspends its tab and
+  silently drops an event stream.
+- **A closed tab is not a lost sticker.** Scanning again lands you back on your
+  ticket.
+- **The volunteer is not the bottleneck.** Lines from the bank print straight
+  through; only free text waits for a tap. At one sticker every 20 seconds a
+  human gate is the thing that jams the booth, and there is nothing to moderate
+  in a line that was written weeks earlier. `STICKER_AUTO_APPROVE=none` puts the
+  tap back on everything.
+
 ## Failure behaviour
 
 - Printer offline, out of paper, jammed: one retry, then the job parks as
@@ -172,6 +224,8 @@ the booth machine with no fonts installed.
 - Kill the server mid-print and the interrupted job goes back on the queue at
   start-up. Nothing that somebody is waiting for is dropped silently.
 - Rejects are logged, not deleted, so an over-eager filter is visible afterwards.
+- While the printer is down the booth stops accepting and says so, on the join
+  screen and on every phone already holding a ticket.
 - Both screens reconnect on their own and re-read state from the server, so a
   refresh does not empty the wall.
 

@@ -195,6 +195,9 @@ app.get('/api/render', (req, res) => {
   res.type('svg').set('Cache-Control', 'public, max-age=600').send(svg);
 });
 
+/** A ticket always travels with a human-readable wait, not just seconds. */
+const withWait = (status) => ({ ...status, wait: formatWait(status.waitSeconds) });
+
 /** What the booth can promise right now. The phone checks this before starting. */
 app.get('/api/capacity', async (req, res) => {
   const cap = await capacity((await printerHealthNow()));
@@ -210,7 +213,7 @@ app.get('/api/capacity', async (req, res) => {
 app.get('/api/ticket/:id', async (req, res) => {
   const status = await ticketStatus(Number(req.params.id), (await printerHealthNow()));
   if (!status) return res.sendStatus(404);
-  res.json({ ...status, wait: formatWait(status.waitSeconds) });
+  res.json(withWait(status));
 });
 
 /**
@@ -229,7 +232,8 @@ app.post('/api/submit', async (req, res) => {
   // Hand back the ticket that already exists rather than printing twice.
   const existing = await store.getByRequest(requestId);
   if (existing) {
-    return res.json({ ticketId: existing.id, duplicate: true, ...(await ticketStatus(existing.id, (await printerHealthNow()))) });
+    return res.json({ ticketId: existing.id, duplicate: true,
+      ...withWait(await ticketStatus(existing.id, await printerHealthNow())) });
   }
 
   const refuse = (gate) => res.status(gate.reason === 'already-queued' ? 409 : 503).json({
@@ -268,7 +272,8 @@ app.post('/api/submit', async (req, res) => {
     // Either the queue filled between the early check and here, or this exact
     // request already exists.
     const dup = await store.getByRequest(requestId);
-    if (dup) return res.json({ ticketId: dup.id, duplicate: true, ...(await ticketStatus(dup.id, (await printerHealthNow()))) });
+    if (dup) return res.json({ ticketId: dup.id, duplicate: true,
+      ...withWait(await ticketStatus(dup.id, await printerHealthNow())) });
     return refuse({ reason: 'at-capacity', capacity: await capacity((await printerHealthNow())) });
   }
 
@@ -276,7 +281,7 @@ app.post('/api/submit', async (req, res) => {
 
   broadcast('queued', { id, text: clean.text, templateId, flagged: !clean.ok, auto: autoApprove });
   res.json({ ticketId: id, duplicate: false, guided, autoApproved: autoApprove,
-             ...(await ticketStatus(id, (await printerHealthNow()))) });
+             ...withWait(await ticketStatus(id, await printerHealthNow())) });
 });
 
 /**

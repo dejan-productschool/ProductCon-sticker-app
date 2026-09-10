@@ -10,7 +10,12 @@
     --key:#1A1B21; --key-hi:#262832; --muted:#8A8FA0; --line:#23252E;
   }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body { height:100%; margin:0; overflow:hidden; }
+  html { height:100%; }
+  /* 100dvh, not 100%: iOS Safari's chrome shrinks the visible area as you
+     scroll, and a fixed 100% pushes the top of the screen up under the address
+     bar where it cannot be reached. The page is allowed to scroll rather than
+     clip - nothing an attendee needs may end up somewhere they cannot get to. */
+  body { margin:0; min-height:100dvh; overflow-x:hidden; }
   body {
     background:var(--ink); color:var(--paper);
     font:400 16px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -18,7 +23,7 @@
   }
   body.kiosk, body.kiosk button { cursor:none; }
 
-  .screen { display:none; width:100%; height:100%; padding:4vh 4vw; }
+  .screen { display:none; width:100%; min-height:100dvh; padding:4vh 4vw; }
   .screen.on { display:flex; flex-direction:column; }
 
   /* ---- attract ---- */
@@ -38,27 +43,7 @@
   .dots i.done { background:var(--muted); }
 
   .cols { flex:1; display:flex; gap:3vw; min-height:0; }
-  /* Phones, which is now nearly everyone: one column, choices first. */
-  @media (max-width: 820px) {
-    .screen { padding:2.6vh 5vw; }
-    .cols { flex-direction:column; gap:2.4vh; }
-    .choices { flex:none; gap:1.1vh; }
-    .choices button { padding:1.8vh 2.2vh; font-size:17px; }
-    .stage { flex:none; }
-    .sofar { width:100%; flex-direction:row; gap:2vw; }
-    .sofar .slot { flex:1; padding:1.4vh 1.6vh; font-size:13px; }
-    .sofar .tail { display:none; }
-    /* Content sits at the top and the buttons stay at the bottom, rather than
-       everything floating in the middle of a tall phone screen. */
-    #reveal, #ask { justify-content:flex-start; }
-    .options { flex:none; align-content:start; grid-template-columns:1fr 1fr 1fr; gap:2.4vw; }
-    .option .nm { font-size:12px; }
-    .actions { margin-top:auto; gap:2.4vw; }
-    .actions button { min-height:64px; font-size:14px; letter-spacing:.04em; }
-    .prompt { font-size:20px; }
-    .ownline { margin-top:1vh; }
-    #wait img { width:52vw; }
-  }
+
   .choices { flex:1.35; display:flex; flex-direction:column; gap:1.4vh; justify-content:center; min-width:0; }
   .choices button {
     width:100%; text-align:left; border:2px solid var(--line); border-radius:16px;
@@ -150,6 +135,41 @@
   #blocked h2 { color:var(--brand); }
   #blocked .ship { min-height:64px; border:0; border-radius:16px; color:#fff;
                    font:800 16px/1 inherit; letter-spacing:.06em; padding:0 4vh; }
+
+  /* ------------------------------------------------------------------ */
+  /* Phones, which is now everyone. Last in the file on purpose: these    */
+  /* rules have the same specificity as the desktop ones above, so they   */
+  /* only win by coming after them.                                       */
+  @media (max-width: 820px) {
+    .screen { padding:2.4vh 5vw 3vh; }
+    /* Content flows and the page scrolls if it must. Nothing an attendee
+       needs may end up above the fold with no way to reach it. */
+    #ask, #reveal { justify-content:flex-start; height:auto; }
+    .cols { flex-direction:column; gap:2vh; flex:none; }
+    .head { position:sticky; top:0; z-index:3; background:var(--ink);
+            padding:1.6vh 0 1.2vh; margin-bottom:.6vh; }
+    .prompt { font-size:21px; }
+    .choices { flex:none; gap:10px; justify-content:flex-start; }
+    .choices button { padding:16px 18px; font-size:17px; }
+    .choices .ghost { padding:13px 18px; font-size:14px; }
+    .stage { flex:none; }
+
+    /* The "so far" panel is a progress note, not the point. It sits under the
+       choices on a phone and must never push them off the top. */
+    .sofar { width:100%; flex-direction:row; gap:8px; }
+    .sofar .slot { flex:1; padding:10px 12px; font-size:13px; }
+    .sofar .slot small { font-size:9px; margin-bottom:.4em; }
+    .sofar .tail { display:none; }
+
+    .options { flex:none; align-content:start; grid-template-columns:1fr 1fr 1fr; gap:2.4vw; }
+    .option { border-width:4px; border-radius:14px; }
+    .option .nm { font-size:12px; }
+    .actions { margin-top:2.4vh; gap:2.4vw; }
+    .actions button { min-height:60px; font-size:13px; letter-spacing:.04em; }
+    .ownline { margin-top:1.4vh; font-size:14px; }
+    #wait img { width:56vw; }
+    .ticketno b { font-size:64px; }
+  }
 </style>
 </head>
 <body>

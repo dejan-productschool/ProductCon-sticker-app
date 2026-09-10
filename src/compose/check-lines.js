@@ -12,7 +12,7 @@ import { fitText } from './typeset.js';
 import { TEMPLATES } from './templates.js';
 import { MIN_LEGIBLE_PX, pxToCapMm } from './constants.js';
 import { MAX_CHARS, sanitise } from './sanitise.js';
-import { allLines, allCombinations, linesFor, QUESTIONS } from './survey.js';
+import { allLines, allCombinations, linesFor, QUESTIONS, survey } from './survey.js';
 
 const OFFERED = 3;
 let problems = 0;
@@ -48,17 +48,33 @@ for (const line of lines) {
 }
 
 // --- every answer combination -------------------------------------------
+// A cell that falls through to the fallback means one of the two questions
+// stopped mattering for that pairing, which is the whole thing this file
+// exists to catch.
 console.log('\nanswer combinations');
-for (const combo of allCombinations()) {
-  const got = linesFor(combo, OFFERED);
-  if (got.length < OFFERED || new Set(got).size < got.length) {
+let filled = 0;
+for (const { who, confession } of allCombinations()) {
+  const cell = survey.lines[who]?.[confession];
+  const got = linesFor({ who, confession });
+
+  if (!cell || cell.length === 0) {
     problems++;
-    console.log(`  !! ${combo.who}|${combo.confession} -> ${got.length} line(s)`);
+    console.log(`  !! ${who} | ${confession}  MISSING - falls back to a generic line`);
+    continue;
   }
+  if (cell.length < OFFERED) {
+    problems++;
+    console.log(`  !! ${who} | ${confession}  only ${cell.length} line(s), want ${OFFERED}`);
+    continue;
+  }
+  if (new Set(got).size < got.length) {
+    problems++;
+    console.log(`  !! ${who} | ${confession}  has duplicates`);
+    continue;
+  }
+  filled++;
 }
-const specific = allCombinations().filter((c) => linesFor(c, 1)[0] !== linesFor({ confession: c.confession }, 1)[0]);
-console.log(`  ${allCombinations().length} combinations, all produce ${OFFERED} distinct lines`);
-console.log(`  ${specific.length} have a pair-specific line; ${allCombinations().length - specific.length} fall back to the confession set`);
+console.log(`  ${filled}/${allCombinations().length} combinations have their own ${OFFERED} lines`);
 
 console.log(`\nquestions: ${QUESTIONS.map((q) => `${q.id} (${q.options.length})`).join(', ')}`);
 console.log(problems ? `\n${problems} PROBLEM(S)` : '\nall good');

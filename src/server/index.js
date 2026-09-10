@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import { compose, offerTemplates } from '../compose/compose.js';
 import { sanitise, MAX_CHARS } from '../compose/sanitise.js';
-import { QUESTIONS, FREE_TEXT_ALLOWED, linesFor, previewText } from '../compose/survey.js';
+import { QUESTIONS, FREE_TEXT_ALLOWED, linesFor, isComplete } from '../compose/survey.js';
 import { getTemplate, TEMPLATES } from '../compose/templates.js';
 import { CANVAS, PRINT_SECONDS } from '../compose/constants.js';
 import { USING_PLACEHOLDER_LOCKUP } from '../compose/brand.js';
@@ -61,10 +61,15 @@ app.get('/api/config', (req, res) => {
   });
 });
 
-/** Answers in, hand-written lines out. Nothing is generated here. */
+/**
+ * Answers in, hand-written lines out. Nothing is generated here.
+ *
+ * Empty until every question is answered: the message is a function of all of
+ * them, and handing back a line early would make the last question decorative.
+ */
 app.post('/api/lines', (req, res) => {
   const answers = req.body?.answers ?? {};
-  res.json({ lines: linesFor(answers), preview: previewText(answers) });
+  res.json({ complete: isComplete(answers), lines: linesFor(answers) });
 });
 
 /**

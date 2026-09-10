@@ -50,18 +50,18 @@
                     font-size:clamp(14px,1.6vw,24px); padding:1.6vh 3vh; }
 
   .stage { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1.6vh; min-width:0; }
-  .stage img { width:min(100%,42vh); aspect-ratio:1; border-radius:16px; background:var(--key);
-               object-fit:contain; transition:opacity .18s ease; }
-  .stage img.loading { opacity:.35; }
-  .stage .cap { color:var(--muted); font-size:clamp(12px,1.3vw,19px); font-weight:600; letter-spacing:.1em; }
-  /* Before the first answer there is nothing to show. An empty grey square
-     reads as a broken image, so say what the space is for instead. */
-  .stage.empty img, .stage.empty .cap { display:none; }
-  .stage .hint { display:none; width:min(100%,42vh); aspect-ratio:1; border:2px dashed var(--line);
-                 border-radius:16px; align-items:center; justify-content:center; text-align:center;
-                 color:var(--muted); font-size:clamp(13px,1.5vw,22px); font-weight:600;
-                 padding:0 2em; line-height:1.4; }
-  .stage.empty .hint { display:flex; }
+  /* No sticker is shown until both questions are answered. Rendering one from
+     a single answer made the first question look like the whole point and then
+     threw its answer away. This just tracks what is locked in. */
+  .sofar { width:min(100%,42vh); display:flex; flex-direction:column; gap:1.6vh; }
+  .sofar .slot { border:2px dashed var(--line); border-radius:14px; padding:2vh 2.4vh;
+                 color:var(--muted); font-size:clamp(13px,1.5vw,22px); font-weight:600; }
+  .sofar .slot.set { border-style:solid; border-color:var(--brand); background:var(--key);
+                     color:var(--paper); }
+  .sofar .slot small { display:block; font-size:.62em; letter-spacing:.14em; color:var(--muted);
+                       font-weight:700; margin-bottom:.5em; }
+  .sofar .tail { color:var(--muted); font-size:clamp(12px,1.3vw,19px); font-weight:600;
+                 text-align:center; line-height:1.4; }
 
   /* ---- design picker ---- */
   .options { flex:1; display:grid; grid-template-columns:repeat(3,1fr); gap:2vw; align-content:center; }
@@ -75,8 +75,12 @@
   .actions button { min-height:11vh; border:0; border-radius:16px;
                     font:800 clamp(18px,2.6vw,40px)/1 inherit; letter-spacing:.06em; }
   .back { background:var(--key); color:var(--paper); flex:1; }
-  .ship { background:var(--brand); color:#fff; flex:3; }
+  .alt  { background:var(--key); color:var(--paper); flex:1.6; }
+  .ship { background:var(--brand); color:#fff; flex:2.6; }
   .actions button[disabled] { opacity:.4; }
+  .ownline { margin:1.6vh auto 0; background:none; border:0; color:var(--muted);
+             font:600 clamp(13px,1.5vw,20px)/1 inherit; text-decoration:underline;
+             text-underline-offset:5px; padding:1vh; }
 
   /* ---- free text ---- */
   #write { justify-content:space-between; }
@@ -124,42 +128,24 @@
   </div>
   <div class="cols">
     <div class="choices" id="askChoices"></div>
-    <div class="stage empty" id="askStage">
-      <div class="hint">Your sticker appears here as you answer</div>
-      <img id="askPreview" alt="">
-      <div class="cap">YOUR STICKER SO FAR</div>
-    </div>
-  </div>
-</section>
-
-<section id="pickLine" class="screen">
-  <div class="head">
-    <p class="prompt">Pick your line.</p>
-    <div class="dots" id="dots3"></div>
-  </div>
-  <div class="cols">
-    <div class="choices" id="lineChoices"></div>
     <div class="stage">
-      <img id="linePreview" alt="">
-      <div class="cap">YOUR STICKER SO FAR</div>
+      <div class="sofar" id="soFar"></div>
     </div>
-  </div>
-  <div class="actions">
-    <button class="back" id="lineBack">BACK</button>
-    <button class="ship" id="lineNext">PICK A LOOK</button>
   </div>
 </section>
 
-<section id="pickDesign" class="screen">
+<section id="reveal" class="screen">
   <div class="head">
-    <p class="prompt" id="designLine"></p>
-    <div class="dots" id="dots4"></div>
+    <p class="prompt" id="revealLine"></p>
+    <div class="dots" id="dots3"></div>
   </div>
   <div class="options" id="options"></div>
   <div class="actions">
-    <button class="back" id="designBack">BACK</button>
+    <button class="back" id="revealBack">BACK</button>
+    <button class="alt" id="another">TRY ANOTHER LINE</button>
     <button class="ship" id="shipBtn">SHIP IT</button>
   </div>
+  <button class="ownline" id="ownLine">None of these - write my own</button>
 </section>
 
 <section id="write" class="screen">
@@ -179,21 +165,21 @@
 
 <script>
 const IDLE_MS = 45000;
-const PREVIEW_TEMPLATE = 'block'; // stable while the line is still forming
 
 let cfg = { questions: [], maxChars: 64, freeText: true };
 let step = 0;               // index into cfg.questions
 let answers = {};
-let lines = [];
-let line = '';
+let lines = [];             // the three for this exact pair of answers
+let lineAt = 0;
 let templates = [];
 let templateId = null;
 let text = '';              // free-text path only
 let idleTimer;
 
 const $ = (id) => document.getElementById(id);
-const SCREENS = ['attract', 'ask', 'pickLine', 'pickDesign', 'write', 'done'];
+const SCREENS = ['attract', 'ask', 'reveal', 'write', 'done'];
 const on = (id) => $(id).classList.contains('on');
+const line = () => (text ? text : lines[lineAt] ?? '');
 
 function go(name) {
   SCREENS.forEach((s) => $(s).classList.toggle('on', s === name));
@@ -209,7 +195,7 @@ function resetIdle(ms) {
 }
 
 function reset() {
-  step = 0; answers = {}; lines = []; line = ''; templateId = null; text = '';
+  step = 0; answers = {}; lines = []; lineAt = 0; templateId = null; text = '';
   go('attract');
 }
 
@@ -228,21 +214,38 @@ function tap(el, fn) {
 }
 
 const renderUrl = (t, tpl) => `/api/render?text=${encodeURIComponent(t)}&template=${tpl}`;
-
-function setPreview(img, t) {
-  if (!t) { img.removeAttribute('src'); return; }
-  img.classList.add('loading');
-  img.onload = () => img.classList.remove('loading');
-  img.src = renderUrl(t, PREVIEW_TEMPLATE);
-}
+const escapeHtml = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c]));
 
 function dots(container, active) {
-  const total = cfg.questions.length + 2; // questions, then line, then look
+  const total = cfg.questions.length + 1; // the questions, then the reveal
   container.innerHTML = Array.from({ length: total }, (_, i) =>
     `<i class="${i === active ? 'on' : i < active ? 'done' : ''}"></i>`).join('');
 }
 
 // ---------------------------------------------------------------- questions
+
+/**
+ * What is locked in so far.
+ *
+ * Deliberately not a sticker. Showing a finished sticker built from one answer
+ * made the first question look like the whole point, and then replaced it - so
+ * the question read as pointless. Both answers feed one message; until there
+ * are two, there is no message.
+ */
+function renderSoFar() {
+  const slots = cfg.questions.map((q) => {
+    const opt = q.options.find((o) => o.id === answers[q.id]);
+    return `<div class="slot ${opt ? 'set' : ''}">
+        <small>${escapeHtml(q.prompt.replace(/[?.]$/, '').toUpperCase())}</small>
+        ${opt ? escapeHtml(opt.label) : '&mdash;'}
+      </div>`;
+  });
+  const left = cfg.questions.filter((q) => !answers[q.id]).length;
+  slots.push(`<div class="tail">${left
+    ? `${left} more, then your line appears`
+    : 'Building your line&hellip;'}</div>`);
+  $('soFar').innerHTML = slots.join('');
+}
 
 function askQuestion() {
   const q = cfg.questions[step];
@@ -250,86 +253,59 @@ function askQuestion() {
   dots($('dots'), step);
 
   $('askChoices').innerHTML = q.options
-    .map((o) => `<button data-id="${o.id}" class="${answers[q.id] === o.id ? 'sel' : ''}">${o.label}</button>`)
+    .map((o) => `<button data-id="${o.id}" class="${answers[q.id] === o.id ? 'sel' : ''}">${escapeHtml(o.label)}</button>`)
     .join('');
   [...$('askChoices').children].forEach((el) => tap(el, () => answer(q.id, el.dataset.id)));
 
-  // Show what the sticker looks like from the answers so far. On the first
-  // question there is nothing yet, so the stage stays empty rather than lying.
-  refreshPreview($('askPreview'));
+  renderSoFar();
   go('ask');
-}
-
-async function refreshPreview(img) {
-  const res = await fetch('/api/lines', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ answers }),
-  });
-  const data = await res.json();
-  $('askStage').classList.toggle('empty', !data.preview);
-  setPreview(img, data.preview);
-  return data;
 }
 
 async function answer(questionId, value) {
   answers[questionId] = value;
   resetIdle(IDLE_MS);
 
-  // Repaint selection immediately, then move on. The pause is deliberate: it
-  // shows the sticker updating, which is where "I made this" comes from when
-  // nobody is typing.
   [...$('askChoices').children].forEach((el) => el.classList.toggle('sel', el.dataset.id === value));
-  const data = await refreshPreview($('askPreview'));
+  renderSoFar();
 
-  setTimeout(() => {
-    step += 1;
-    if (step < cfg.questions.length) askQuestion();
-    else showLines(data.lines);
-  }, 450);
-}
+  // A short beat so the choice registers before the screen moves.
+  await new Promise((r) => setTimeout(r, 260));
 
-// -------------------------------------------------------------- pick a line
+  step += 1;
+  if (step < cfg.questions.length) return askQuestion();
 
-function showLines(fromAnswers) {
-  lines = fromAnswers;
-  line = lines[0] ?? '';
-  dots($('dots3'), cfg.questions.length);
-
-  const buttons = lines.map((l, i) =>
-    `<button data-line="${escapeAttr(l)}" class="${i === 0 ? 'sel' : ''}">${escapeHtml(l)}</button>`);
-  if (cfg.freeText) buttons.push('<button class="ghost" id="ownLine">None of these - write my own</button>');
-
-  $('lineChoices').innerHTML = buttons.join('');
-  [...$('lineChoices').children].forEach((el) => {
-    if (el.id === 'ownLine') return tap(el, () => { text = ''; renderEntry(); go('write'); });
-    tap(el, () => {
-      line = el.dataset.line;
-      [...$('lineChoices').children].forEach((o) => o.classList.toggle('sel', o === el));
-      setPreview($('linePreview'), line);
-      resetIdle(IDLE_MS);
-    });
+  const res = await fetch('/api/lines', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answers }),
   });
-
-  setPreview($('linePreview'), line);
-  go('pickLine');
+  const data = await res.json();
+  lines = data.lines;
+  lineAt = 0;
+  text = '';
+  showReveal();
 }
 
-// ------------------------------------------------------------ pick a design
+// ------------------------------------------------------- the reveal
 
-async function showDesigns() {
-  const res = await fetch(`/api/options?text=${encodeURIComponent(line)}`);
+async function showReveal() {
+  const current = line();
+  if (!current) return;
+
+  const res = await fetch(`/api/options?text=${encodeURIComponent(current)}`);
   if (!res.ok) return;
   const data = await res.json();
 
-  line = data.text;
   templates = data.templates;
   templateId = templates[0]?.id ?? null;
 
-  dots($('dots4'), cfg.questions.length + 1);
-  $('designLine').textContent = `"${line}"`;
+  dots($('dots3'), cfg.questions.length);
+  $('revealLine').textContent = `"${data.text}"`;
+  $('another').style.visibility = lines.length > 1 && !text ? 'visible' : 'hidden';
+  $('ownLine').style.display = cfg.freeText ? 'block' : 'none';
+
   $('options').innerHTML = templates.map((t, i) => `
     <button class="option ${i === 0 ? 'sel' : ''}" data-id="${t.id}">
-      <img src="${renderUrl(line, t.id)}" alt="${t.name}">
+      <img src="${renderUrl(data.text, t.id)}" alt="${t.name}">
       <div class="nm">${t.name}</div>
     </button>`).join('');
 
@@ -339,22 +315,30 @@ async function showDesigns() {
     resetIdle(IDLE_MS);
   }));
 
-  go('pickDesign');
+  go('reveal');
+}
+
+/** Cycle to the next line for the same pair of answers. */
+function anotherLine() {
+  if (!lines.length) return;
+  lineAt = (lineAt + 1) % lines.length;
+  resetIdle(IDLE_MS);
+  showReveal();
 }
 
 // -------------------------------------------------------------------- ship
 
 async function ship() {
-  if (!templateId || !line) return;
+  const current = line();
+  if (!templateId || !current) return;
   $('shipBtn').disabled = true;
-  const shipped = { line, templateId };
   try {
     const res = await fetch('/api/submit', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: shipped.line, templateId: shipped.templateId, answers }),
+      body: JSON.stringify({ text: current, templateId, answers }),
     });
     if (!res.ok) throw new Error('submit failed');
-    $('doneImg').src = renderUrl(shipped.line, shipped.templateId);
+    $('doneImg').src = renderUrl(current, templateId);
     $('doneMsg').className = '';
     $('doneMsg').textContent = 'Your sticker is printing. Grab it from the volunteer.';
   } catch {
@@ -422,20 +406,17 @@ function buildKeyboard() {
 
   const goBtn = document.createElement('button');
   goBtn.className = 'go'; goBtn.id = 'kbGo'; goBtn.textContent = 'USE THIS';
-  tap(goBtn, () => { if (text.trim()) { line = text.trim(); showDesigns(); } });
+  tap(goBtn, () => { if (text.trim()) { text = text.trim(); showReveal(); } });
   last.appendChild(goBtn);
   kb.appendChild(last);
 }
 
 // ------------------------------------------------------------------ wiring
 
-const escapeHtml = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c]));
-const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
-
 tap($('attract'), () => { step = 0; answers = {}; askQuestion(); });
-tap($('lineNext'), showDesigns);
-tap($('lineBack'), () => { step = cfg.questions.length - 1; askQuestion(); });
-tap($('designBack'), () => showLines(lines));
+tap($('revealBack'), () => { text = ''; step = cfg.questions.length - 1; askQuestion(); });
+tap($('another'), anotherLine);
+tap($('ownLine'), () => { text = ''; renderEntry(); go('write'); });
 tap($('shipBtn'), ship);
 
 // A physical keyboard drives the whole thing: number keys pick options, Enter
@@ -450,21 +431,23 @@ document.addEventListener('keydown', (e) => {
   if (on('attract')) { e.preventDefault(); step = 0; answers = {}; askQuestion(); return; }
 
   if (on('write')) {
-    if (e.key === 'Enter') { e.preventDefault(); if (text.trim()) { line = text.trim(); showDesigns(); } return; }
+    if (e.key === 'Enter') { e.preventDefault(); if (text.trim()) { text = text.trim(); showReveal(); } return; }
     if (e.key === 'Backspace') { e.preventDefault(); text = text.slice(0, -1); renderEntry(); resetIdle(IDLE_MS); return; }
-    if (e.key === 'Escape') { e.preventDefault(); showLines(lines); return; }
+    if (e.key === 'Escape') { e.preventDefault(); text = ''; showReveal(); return; }
     if ([...e.key].length === 1 && !e.repeat) { e.preventDefault(); key(e.key); }
     return;
   }
 
-  const list = on('ask') ? $('askChoices') : on('pickLine') ? $('lineChoices')
-             : on('pickDesign') ? $('options') : null;
-
+  const list = on('ask') ? $('askChoices') : on('reveal') ? $('options') : null;
   if (list) {
     const els = [...list.children];
     const n = Number(e.key);
-    if (n >= 1 && n <= els.length) { e.preventDefault(); els[n - 1].dispatchEvent(new PointerEvent('pointerdown')); return; }
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    if (n >= 1 && n <= els.length) {
+      e.preventDefault();
+      els[n - 1].dispatchEvent(new PointerEvent('pointerdown'));
+      return;
+    }
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
       e.preventDefault();
       const at = els.findIndex((el) => el.classList.contains('sel'));
       const fwd = e.key === 'ArrowRight' || e.key === 'ArrowDown';
@@ -474,11 +457,9 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    if (on('pickLine')) showDesigns();
-    else if (on('pickDesign')) ship();
-    return;
+  if (on('reveal')) {
+    if (e.key === 'Enter') { e.preventDefault(); ship(); return; }
+    if (e.key === ' ') { e.preventDefault(); anotherLine(); return; }
   }
   if (e.key === 'Escape') { e.preventDefault(); reset(); }
 });

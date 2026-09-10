@@ -2,13 +2,13 @@
 
 Booth kiosk for the Product School stand at ProductCon San Francisco.
 
-An attendee answers two questions, picks a line and a look, and taps **Ship It**.
+An attendee answers two questions, gets a line written for that exact pairing,
+picks a look, and taps **Ship It**.
 A volunteer glances at it and taps approve. About twenty seconds later they peel
 a 50 mm sticker off the backing. A second screen shows a live wall of everything
 printed today.
 
-Four taps, about twenty seconds, no typing. The sticker assembles on screen as
-they answer.
+Three taps, about twenty seconds, no typing.
 
 Six designed templates, no generative AI at run time, everything running on one
 machine at the booth.
@@ -95,18 +95,24 @@ Everything an attendee can see lives in [`content/survey.json`](content/survey.j
 - the two questions, their options, and the hand-written line bank. A writer can
 rewrite the entire voice of the booth without touching code.
 
-Lines are keyed `who|confession`. A `*` matches any answer, so `*|friday` covers
-every identity; an exact pair beats the general one. Write the specific ones only
-where the combination is funnier than its parts - that is the difference between
-this and mad libs.
+The bank is a full 5 x 6 matrix: every identity crossed with every confession,
+three lines each, 90 in total. Both answers have to be visible in the result -
+if either could be dropped without changing the line, that question is
+decoration. Same confession, different identity, genuinely different sticker:
+
+    users    x jira -> "I talk to users. Jira talks to itself."
+    meetings x jira -> "Never opened Jira. In every meeting about it."
+    new      x jira -> "Six weeks in, still have not opened Jira" 
 
 ```bash
 npm run lines
 ```
 
-Checks every line against every template: that it fits, that at least three
-templates can set it above the legibility floor, and that all 30 answer
-combinations produce three distinct choices. Run it after editing the copy.
+Checks every line against every template - that it fits, and that at least three
+templates set it above the legibility floor - and fails if any of the 30 cells is
+missing, short, or has duplicates. A missing cell would silently fall back to a
+generic line, which is exactly how a question stops mattering. Run it after
+editing the copy.
 
 ### Why a survey and not a text field
 
@@ -179,7 +185,7 @@ the booth machine with no fonts installed.
 - [ ] **The repo is public** and now carries the real wordmark and palette.
       Worth a nod from whoever owns the brand before pushing.
 - [ ] **The six designs**, reviewed by a designer. The software is the small part.
-- [ ] **The line bank.** 38 lines is enough to open with; it wants a writer and a
+- [ ] **The line bank.** 90 lines is enough to open with; it wants a writer and a
       pass with people who will actually be at the booth. This is the critical
       path, alongside the designs.
 - [ ] Whether the confession options rotate through the day, so the wall does

@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "_note": "Everything an attendee can see is in this file. No code changes needed to rewrite the booth's voice. Run `npm run lines` after editing - it checks every line still sets legibly in at least three templates.",
+  "version": 2,
+  "_note": "Everything an attendee can see is in this file. No code changes needed to rewrite the booth's voice. Run `npm run lines` after editing - it fails if any combination is missing, or if a line will not set legibly.",
 
   "questions": [
     {
@@ -28,69 +28,182 @@
     }
   ],
 
-  "_lines": "Keys are `who|confession`. A `*` matches any answer, so `*|friday` covers every identity. Specific beats general: an exact pair is offered first, then the confession-only lines, then the identity-only ones. Three get shown. Write the specific ones where the combination is actually funnier than its parts - that is where this stops feeling like mad libs.",
+  "_lines": "A 5 x 6 matrix: every identity crossed with every confession. Both answers have to be visible in the result, otherwise the first question is decoration. Three lines per cell so 'try another' has somewhere to go. Keep them under about 50 characters.",
 
   "lines": {
-    "*|friday": [
-      "Shipped it Friday. Slept fine.",
-      "Friday deploys, zero regrets",
-      "I ship on Fridays and I'd do it again"
-    ],
-    "*|killed": [
-      "I killed my own feature",
-      "Sunset my own baby. On purpose.",
-      "Killed it before it could hurt anyone"
-    ],
-    "*|graveyard": [
-      "My backlog is a graveyard",
-      "Every ticket is a tiny gravestone",
-      "The backlog knows what it did"
-    ],
-    "*|estimates": [
-      "I still don't do estimates",
-      "Ask me for an estimate. Go on.",
-      "It'll be done when it's done"
-    ],
-    "*|jira": [
-      "I've never opened Jira",
-      "Jira and I have an understanding",
-      "No Jira. No notes."
-    ],
-    "*|docs": [
-      "I actually read the docs",
-      "I read the docs. All of them.",
-      "Read the docs so you don't have to"
-    ],
+    "ships": {
+      "friday": [
+        "Ships Fridays. Sleeps fine.",
+        "Friday deploy, Saturday legend",
+        "I ship on Fridays. That is the personality."
+      ],
+      "killed": [
+        "I shipped it, then I killed it",
+        "Built it. Shipped it. Buried it.",
+        "Shipped fast enough to kill it early"
+      ],
+      "graveyard": [
+        "I ship fast and bury the rest",
+        "Shipped the top. Buried the rest.",
+        "My backlog is where features go to be outrun"
+      ],
+      "estimates": [
+        "It ships when it ships",
+        "No estimates. Just receipts.",
+        "I do not estimate, I deploy"
+      ],
+      "jira": [
+        "Never opened Jira. Shipped anyway.",
+        "No Jira, no blockers, no problem",
+        "Ships weekly. Jira remains sealed."
+      ],
+      "docs": [
+        "Read the docs. Then shipped past them.",
+        "Docs read. Feature shipped. Same day.",
+        "I read the docs and shipped it twice"
+      ]
+    },
 
-    "ships|friday":      ["Ships on Fridays. Sleeps fine."],
-    "ships|killed":      ["Shipped it, then killed it"],
-    "ships|graveyard":   ["I ship fast and bury the rest"],
-    "says_no|graveyard": ["My backlog is a graveyard and I dug every hole"],
-    "says_no|estimates": ["Said no to the estimate too"],
-    "says_no|friday":    ["Said no all week. Shipped on Friday."],
-    "users|killed":      ["Users told me. So I killed it."],
-    "users|docs":        ["I read the docs and I talked to a real user"],
-    "users|graveyard":   ["Talked to users. Buried half the backlog."],
-    "meetings|estimates":["I estimated it in a meeting. I was wrong."],
-    "meetings|graveyard":["We discussed the backlog. It is still a graveyard."],
-    "meetings|jira":     ["Never opened Jira. Attended every meeting about it."],
-    "new|jira":          ["Six weeks in, still haven't opened Jira"],
-    "new|docs":          ["New here. Read everything. Suspicious already."],
-    "new|friday":        ["New here. Already shipping on Fridays."],
+    "says_no": {
+      "friday": [
+        "Said no all week. Shipped on Friday.",
+        "No, no, no, and then a Friday deploy",
+        "Fridays are for shipping what survived"
+      ],
+      "killed": [
+        "Said no to my own feature. Loudly.",
+        "I say no. Sometimes to myself.",
+        "The feature I killed was mine"
+      ],
+      "graveyard": [
+        "My backlog is a graveyard and I dug every hole",
+        "Every no is a headstone",
+        "I said no forty times. Here is the cemetery."
+      ],
+      "estimates": [
+        "No to the feature. No to the estimate.",
+        "Asked for an estimate. Said no.",
+        "I do not estimate. I decline."
+      ],
+      "jira": [
+        "Cannot say no to a ticket I never opened",
+        "No Jira. No tickets. No.",
+        "Declined the invite. Declined the ticket."
+      ],
+      "docs": [
+        "Read the docs so I could say no properly",
+        "I read it. The answer is still no.",
+        "An informed no. The best kind."
+      ]
+    },
 
-    "ships|*":    ["The one who ships"],
-    "says_no|*":  ["Professionally says no"],
-    "users|*":    ["I talked to an actual user"],
-    "meetings|*": ["I was in every meeting"],
-    "new|*":      ["New here. Already shipping."]
+    "users": {
+      "friday": [
+        "Users asked Thursday. Shipped Friday.",
+        "Friday ships are user requests",
+        "Talked to users, shipped it that Friday"
+      ],
+      "killed": [
+        "Users told me. So I killed it.",
+        "Talked to five users. Killed my favourite.",
+        "The users were right. It is gone."
+      ],
+      "graveyard": [
+        "Talked to users. Buried half the backlog.",
+        "Users pick the survivors",
+        "Every grave in there was user approved"
+      ],
+      "estimates": [
+        "I estimate in interviews, not points",
+        "No estimates. I have user calls.",
+        "Ask the users, not the planning poker"
+      ],
+      "jira": [
+        "I talk to users. Jira talks to itself.",
+        "My tickets are conversations",
+        "Never opened Jira. Opened forty user calls."
+      ],
+      "docs": [
+        "I read the docs and I talked to a real user",
+        "Docs and users. Radical, apparently.",
+        "Read everything. Then asked someone."
+      ]
+    },
+
+    "meetings": {
+      "friday": [
+        "Shipped on Friday between two meetings",
+        "Six meetings, one Friday deploy",
+        "The Friday deploy happened during standup"
+      ],
+      "killed": [
+        "Killed my own feature. In a meeting.",
+        "It took nine meetings to kill my feature",
+        "I scheduled the meeting that killed it"
+      ],
+      "graveyard": [
+        "We discussed the backlog. Still a graveyard.",
+        "Every meeting adds a headstone",
+        "The backlog outlived the meeting series"
+      ],
+      "estimates": [
+        "I estimated it in a meeting. I was wrong.",
+        "Estimates are what I say in meetings",
+        "Committed to a date. In a meeting. Regrettably."
+      ],
+      "jira": [
+        "Never opened Jira. In every meeting about it.",
+        "We meet about the board I have never seen",
+        "Jira: unopened. Calendar: full."
+      ],
+      "docs": [
+        "I read the docs so the meeting could be shorter",
+        "Read the pre-read. Alone, apparently.",
+        "The only one who read it before the meeting"
+      ]
+    },
+
+    "new": {
+      "friday": [
+        "New here. Already shipping on Fridays.",
+        "Nobody told me not to ship on Fridays",
+        "Week three. Friday deploy. No supervision."
+      ],
+      "killed": [
+        "New here. Killed something already.",
+        "First month. First feature buried.",
+        "Killed my first feature before it shipped"
+      ],
+      "graveyard": [
+        "New here. Inherited a graveyard.",
+        "The backlog was already a cemetery",
+        "Six weeks in, still digging"
+      ],
+      "estimates": [
+        "New here. Already refusing to estimate.",
+        "Too new to estimate. Perfect excuse.",
+        "Nobody has asked me for a date yet"
+      ],
+      "jira": [
+        "Six weeks in, still have not opened Jira",
+        "New here. Jira remains a rumour.",
+        "Nobody has shown me Jira. Not asking."
+      ],
+      "docs": [
+        "New here. Read everything. Suspicious already.",
+        "Read all the docs. Now I have questions.",
+        "New, and already the one who read it"
+      ]
+    }
   },
 
+  "_fallback": "Only reached if a cell is somehow missing. `npm run lines` fails before that can ship.",
   "fallback": [
     "Shipped it",
     "Ask me about my backlog",
     "It shipped. Somehow."
   ],
 
-  "_freeText": "The escape hatch on the last screen. Set to false to force everyone down the guided path.",
+  "_freeText": "The escape hatch on the reveal screen. Set false to force everyone down the guided path.",
   "freeText": true
 }

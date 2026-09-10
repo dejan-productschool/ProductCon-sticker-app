@@ -12,11 +12,14 @@
     "proof": "node src/compose/proof.js",
     "start": "node src/server/index.js",
     "dev": "node --watch src/server/index.js",
-    "lines": "node src/compose/check-lines.js"
+    "lines": "node src/compose/check-lines.js",
+    "agent": "node agent/index.js",
+    "start:booth": "node src/server/index.js"
   },
   "dependencies": {
     "express": "^4.21.2",
     "fontkit": "^2.0.4",
+    "pg": "^8.23.0",
     "qrcode": "^1.5.4",
     "sharp": "^0.33.5"
   },

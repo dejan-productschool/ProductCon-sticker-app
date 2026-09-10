@@ -46,7 +46,7 @@ function capacity() {
 function paint(ids) {
   const grid = $('grid');
   grid.innerHTML = ids.slice(0, capacity())
-    .map((id) => `<img src="/api/sticker/${id}.png" alt="">`).join('');
+    .map((id) => `<img src="/api/sticker/${id}.svg" alt="">`).join('');
   $('empty').style.display = ids.length ? 'none' : 'grid';
 }
 
@@ -66,7 +66,7 @@ events.addEventListener('printed', (e) => {
   $('n').textContent = count;
   $('empty').style.display = 'none';
   const img = document.createElement('img');
-  img.src = `/api/sticker/${id}.png`;
+  img.src = `/api/sticker/${id}.svg`;
   $('grid').prepend(img);
   while ($('grid').children.length > capacity()) $('grid').lastElementChild.remove();
 });

@@ -34,6 +34,30 @@ Brother VC-500W, already bought:
 `src/compose/constants.js` derives all of it. Change `STICKER_MM` or `DPI` and
 the rest follows. Nothing hardcodes 616.
 
+## The two halves
+
+    phones ──▶  hosted app (Vercel)  ◀── booth agent ──▶ VC-500W
+                survey, queue,            claims jobs,
+                tickets, the wall         renders, prints
+
+The hosted app holds the queue and talks to phones. It has no printer and never
+tries to print. The **booth agent** runs on the mini PC next to the Brother,
+pulls approved stickers over `/api/agent/*`, renders them locally and prints.
+
+The agent pulls rather than being pushed to: the booth sits behind whatever
+network the venue provides, so an outbound poll needs no inbound port, no tunnel
+and no fixed address. When the wifi drops the agent just keeps asking, and
+nothing is lost because the queue is not on the booth machine.
+
+Nothing stores pixels. `text` plus `templateId` reproduces a sticker exactly, so
+the database stays small and the hosted app never needs a rasteriser - previews
+go out as SVG with every glyph already an embedded path. `sharp` lives only on
+the booth side.
+
+**If the agent stops checking in, the booth reports itself down and stops
+accepting submissions.** Silence counts as down: a queue that keeps taking work
+while the printer is unplugged is the exact failure this is built to avoid.
+
 ## Run it
 
 Node 22 or newer (the queue uses the built-in `node:sqlite`, so nothing native
@@ -41,8 +65,14 @@ has to compile on the Windows mini PC).
 
 ```bash
 npm install
-npm start
+npm start            # the app: survey, queue, wall
+npm run agent        # the booth side, next to the printer
 ```
+
+`npm start` alone runs everything on one machine against SQLite, which is the
+right setup for building and for a booth with no internet. Set `DATABASE_URL`
+and it uses Postgres instead; set `VERCEL` or `STICKER_HOSTED=1` and it stops
+printing and waits for an agent.
 
     phone    http://localhost:4173/            <- what the QR opens
     join QR  http://localhost:4173/join/        <- on a booth screen or printed
@@ -66,6 +96,10 @@ start-up banner prints the address to use.
 | `STICKER_COOLDOWN_MIN` | `10` | before the same phone can go again |
 | `STICKER_AUTO_APPROVE` | `guided` | `guided`, `none` or `all` |
 | `STICKER_DRY_MS` | `0` | fake print duration, for rehearsing without a printer |
+| `DATABASE_URL` | unset | Postgres for the hosted app; SQLite without it |
+| `STICKER_HOSTED` | off | `1` means no printer here - wait for the agent |
+| `STICKER_AGENT_TOKEN` | unset | shared secret; the agent API is closed without it |
+| `STICKER_API` | `http://localhost:4173` | where the agent looks for work |
 
 A physical keyboard works everywhere: letters type, Enter advances, Backspace
 deletes, Escape goes back, arrows move between the three options. There is no

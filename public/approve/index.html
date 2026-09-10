@@ -60,7 +60,7 @@ function card(s) {
   ].join('');
   return `
     <div class="card ${s.flagged ? 'flagged' : ''} ${failed ? 'failed' : ''}">
-      <img src="/api/sticker/${s.id}.png" alt="">
+      <img src="/api/sticker/${s.id}.svg" alt="">
       <div class="meta">${tags}<span>#${s.id}</span>${failed ? `<span>${esc(s.last_error ?? '')}</span>` : ''}</div>
       <div class="row">
         <button class="no" onclick="decide(${s.id},'reject')">REJECT</button>

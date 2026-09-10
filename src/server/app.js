@@ -69,6 +69,23 @@ export const app = express();
 app.use(express.json({ limit: '64kb' }));
 app.use(express.static(join(ROOT, 'public')));
 
+/**
+ * Nothing under /api can work without a store, so say so once, here, instead of
+ * letting every handler fail in its own way.
+ */
+app.use('/api', (req, res, next) => {
+  if (store.available) return next();
+  res.status(503).json({ error: 'no-store', message: store.unavailableReason });
+});
+
+// Express 4 does not forward rejections from async handlers, so an unexpected
+// failure would take the whole function down rather than answering the request.
+const guard = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+const _get = app.get.bind(app);
+const _post = app.post.bind(app);
+app.get = (path, ...h) => _get(path, ...h.map((f) => (typeof f === 'function' ? guard(f) : f)));
+app.post = (path, ...h) => _post(path, ...h.map((f) => (typeof f === 'function' ? guard(f) : f)));
+
 // ---------------------------------------------------------------- live events
 
 const clients = new Set();
@@ -471,5 +488,12 @@ app.get('/api/health', async (req, res) => {
   });
 });
 
+
+// Last resort: answer with something legible rather than dying silently.
+app.use((err, req, res, _next) => {
+  console.error('[api]', err?.stack ?? err);
+  if (res.headersSent) return;
+  res.status(500).json({ error: 'server-error', message: err?.message ?? 'unknown' });
+});
 
 export { pump, JOIN_URL, PORT, AUTO_APPROVE, HOSTED };

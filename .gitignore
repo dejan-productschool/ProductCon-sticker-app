@@ -3,3 +3,5 @@ data/
 out/
 *.log
 .DS_Store
+.vercel
+.env*

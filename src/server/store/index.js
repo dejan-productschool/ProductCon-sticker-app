@@ -4,9 +4,20 @@
 // SQLite file. Both expose the same async interface, so nothing above this
 // layer knows or cares which one it is talking to.
 
+// SQLite writes a file, which a serverless filesystem will not allow. Rather
+// than crashing on the first request with an ENOENT nobody can interpret, a
+// hosted deployment with no DATABASE_URL loads a store that fails loudly and
+// says exactly what is missing.
+const hosted = !!process.env.VERCEL || process.env.STICKER_HOSTED === '1';
+
 const impl = process.env.DATABASE_URL
   ? await import('./postgres.js')
-  : await import('./sqlite.js');
+  : hosted
+    ? await import('./missing.js')
+    : await import('./sqlite.js');
+
+export const available = impl.kind !== 'none';
+export const unavailableReason = impl.reason ?? null;
 
 export const {
   kind, insertIfRoom, getByRequest, getSticker, waitingCount, positionOf,

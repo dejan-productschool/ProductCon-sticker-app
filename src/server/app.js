@@ -59,11 +59,27 @@ const AGENT_TIMEOUT_MS = Number(process.env.STICKER_AGENT_TIMEOUT_MS ?? 45_000);
 let agentSeenAt = 0;
 let agentReport = { ok: true, detail: 'no booth agent has checked in yet' };
 
-// Where phones are told to go. On a booth LAN this is the machine's own
-// address; behind a tunnel or a deployment, set it explicitly.
+// Where phones are told to go.
+//
+// Derived from the request that asked, because the alternative - reading this
+// machine's own network interface - produces a container's internal address
+// once the app is hosted, and a QR encoding 169.254.x.x is a poster nobody can
+// scan. STICKER_JOIN_URL overrides it when the booth needs a fixed domain.
 const LAN_IP = () => Object.values(networkInterfaces()).flat()
   .find((i) => i && i.family === 'IPv4' && !i.internal)?.address;
-const JOIN_URL = () => process.env.STICKER_JOIN_URL ?? `http://${LAN_IP() ?? 'localhost'}:${PORT}`;
+
+const JOIN_URL = (req) => {
+  if (process.env.STICKER_JOIN_URL) return process.env.STICKER_JOIN_URL.replace(/\/$/, '');
+
+  const host = req?.get?.('x-forwarded-host') ?? req?.get?.('host');
+  if (host && !host.startsWith('localhost') && !host.startsWith('127.')) {
+    const proto = req.get('x-forwarded-proto') ?? (HOSTED ? 'https' : 'http');
+    return `${proto}://${host}`;
+  }
+
+  // Local booth: phones join the same network and reach this machine directly.
+  return `http://${LAN_IP() ?? 'localhost'}:${PORT}`;
+};
 
 export const app = express();
 app.use(express.json({ limit: '64kb' }));
@@ -125,7 +141,7 @@ app.get('/api/events', (req, res) => {
 app.get('/api/config', (req, res) => {
   res.json({
     kiosk: KIOSK,
-    joinUrl: JOIN_URL(),
+    joinUrl: JOIN_URL(req),
     secondsPerSticker: SECONDS_PER_STICKER,
     cooldownMinutes: DEVICE_COOLDOWN_MIN,
     maxChars: MAX_CHARS,
@@ -321,7 +337,7 @@ app.get('/api/wall', async (req, res) => {
 
 /** The QR the booth puts on a screen or a poster. */
 app.get('/api/join.svg', (req, res) => {
-  const url = JOIN_URL();
+  const url = JOIN_URL(req);
   const size = Math.min(2000, Math.max(200, Number(req.query.size) || 900));
   res.type('svg').send(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">` +
@@ -331,7 +347,7 @@ app.get('/api/join.svg', (req, res) => {
 });
 
 app.get('/api/join', (req, res) => {
-  const url = JOIN_URL();
+  const url = JOIN_URL(req);
   res.json({ url, ...qrInfo(url) });
 });
 
@@ -491,7 +507,7 @@ app.get('/api/health', async (req, res) => {
     printSeconds: PRINT_SECONDS,
     capacity: await capacity(printerHealthNow()),
     autoApprove: AUTO_APPROVE,
-    joinUrl: JOIN_URL(),
+    joinUrl: JOIN_URL(req),
   });
 });
 

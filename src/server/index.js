@@ -4,7 +4,7 @@
 // file is the part that only makes sense on a machine with a printer attached.
 
 import { app, pump, JOIN_URL, PORT, AUTO_APPROVE } from './app.js';
-import { recoverInterrupted, kind as storeKind } from './store/index.js';
+import { recoverInterrupted, kind as storeKind, available as storeAvailable, unavailableReason } from './store/index.js';
 import { printMode, printerName } from '../print/printer.js';
 import { QUESTIONS, FREE_TEXT_ALLOWED } from '../compose/survey.js';
 import { MAX_CHARS } from '../compose/sanitise.js';
@@ -13,7 +13,7 @@ import { SECONDS_PER_STICKER } from './queue.js';
 import { networkInterfaces } from 'node:os';
 
 
-const requeued = await recoverInterrupted();
+const requeued = storeAvailable ? await recoverInterrupted() : 0;
 if (requeued) console.log(`[queue] re-queued ${requeued} sticker(s) interrupted by a restart`);
 
 app.listen(PORT, () => {
@@ -28,7 +28,7 @@ app.listen(PORT, () => {
   approve  http://localhost:${PORT}/approve/${lan ? `   (tablet: http://${lan}:${PORT}/approve/)` : ''}
   wall     http://localhost:${PORT}/wall/
 
-  store    ${storeKind}
+  store    ${storeKind}${storeAvailable ? '' : ` - ${unavailableReason}`}
   printer  ${printMode()}${printerName() ? ` -> "${printerName()}"` : ' (system default)'}
   join     ${JOIN_URL()}   (QR at /join/)
   survey   ${QUESTIONS.map((q) => `${q.id} (${q.options.length})`).join(' -> ')}${FREE_TEXT_ALLOWED ? ', free text on' : ''}

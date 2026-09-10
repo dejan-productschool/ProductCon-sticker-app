@@ -70,11 +70,18 @@ app.use(express.json({ limit: '64kb' }));
 app.use(express.static(join(ROOT, 'public')));
 
 /**
- * Nothing under /api can work without a store, so say so once, here, instead of
- * letting every handler fail in its own way.
+ * Guard only the endpoints that actually touch the store.
+ *
+ * The survey, the line bank and sticker rendering are pure functions of the
+ * content file, so they keep working with no database attached - which means a
+ * fresh deployment can be walked through and demoed before anyone has decided
+ * about hosting a queue.
  */
+const STORE_FREE = ['/api/config', '/api/lines', '/api/options', '/api/render', '/api/join', '/api/events'];
+
 app.use('/api', (req, res, next) => {
   if (store.available) return next();
+  if (STORE_FREE.some((p) => req.path === p.slice(4) || req.path.startsWith(`${p.slice(4)}.`))) return next();
   res.status(503).json({ error: 'no-store', message: store.unavailableReason });
 });
 

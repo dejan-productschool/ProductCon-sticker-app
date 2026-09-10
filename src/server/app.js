@@ -56,8 +56,7 @@ const AGENT_TOKEN = process.env.STICKER_AGENT_TOKEN ?? '';
 // unplugged, asleep, or off the network - and the queue must say so rather
 // than taking submissions nobody can print.
 const AGENT_TIMEOUT_MS = Number(process.env.STICKER_AGENT_TIMEOUT_MS ?? 45_000);
-let agentSeenAt = 0;
-let agentReport = { ok: true, detail: 'no booth agent has checked in yet' };
+
 
 // Where phones are told to go.
 //
@@ -198,7 +197,7 @@ app.get('/api/render', (req, res) => {
 
 /** What the booth can promise right now. The phone checks this before starting. */
 app.get('/api/capacity', async (req, res) => {
-  const cap = await capacity(printerHealthNow());
+  const cap = await capacity((await printerHealthNow()));
   const deviceId = String(req.query.deviceId ?? '');
   res.json({
     ...cap,
@@ -209,7 +208,7 @@ app.get('/api/capacity', async (req, res) => {
 
 /** A phone watching its own sticker. Polled, not streamed - phones sleep. */
 app.get('/api/ticket/:id', async (req, res) => {
-  const status = await ticketStatus(Number(req.params.id), printerHealthNow());
+  const status = await ticketStatus(Number(req.params.id), (await printerHealthNow()));
   if (!status) return res.sendStatus(404);
   res.json({ ...status, wait: formatWait(status.waitSeconds) });
 });
@@ -230,7 +229,7 @@ app.post('/api/submit', async (req, res) => {
   // Hand back the ticket that already exists rather than printing twice.
   const existing = await store.getByRequest(requestId);
   if (existing) {
-    return res.json({ ticketId: existing.id, duplicate: true, ...(await ticketStatus(existing.id, printerHealthNow())) });
+    return res.json({ ticketId: existing.id, duplicate: true, ...(await ticketStatus(existing.id, (await printerHealthNow()))) });
   }
 
   const refuse = (gate) => res.status(gate.reason === 'already-queued' ? 409 : 503).json({
@@ -242,7 +241,7 @@ app.post('/api/submit', async (req, res) => {
 
   // Cheap refusal first, so a phone that cannot be served finds out in a few
   // milliseconds rather than after the booth composes a PNG it will not print.
-  const early = await admit(deviceId, printerHealthNow());
+  const early = await admit(deviceId, (await printerHealthNow()));
   if (!early.ok) return refuse(early);
 
   const clean = sanitise(req.body?.text);
@@ -269,15 +268,15 @@ app.post('/api/submit', async (req, res) => {
     // Either the queue filled between the early check and here, or this exact
     // request already exists.
     const dup = await store.getByRequest(requestId);
-    if (dup) return res.json({ ticketId: dup.id, duplicate: true, ...(await ticketStatus(dup.id, printerHealthNow())) });
-    return refuse({ reason: 'at-capacity', capacity: await capacity(printerHealthNow()) });
+    if (dup) return res.json({ ticketId: dup.id, duplicate: true, ...(await ticketStatus(dup.id, (await printerHealthNow()))) });
+    return refuse({ reason: 'at-capacity', capacity: await capacity((await printerHealthNow())) });
   }
 
   if (autoApprove) pump();
 
   broadcast('queued', { id, text: clean.text, templateId, flagged: !clean.ok, auto: autoApprove });
   res.json({ ticketId: id, duplicate: false, guided, autoApproved: autoApprove,
-             ...(await ticketStatus(id, printerHealthNow())) });
+             ...(await ticketStatus(id, (await printerHealthNow()))) });
 });
 
 /**
@@ -297,12 +296,12 @@ app.get('/api/sticker/:id.svg', async (req, res) => {
 // ------------------------------------------------------------- approve tablet
 
 app.get('/api/queue', async (req, res) => {
-  const cap = await capacity(printerHealthNow());
+  const cap = await capacity((await printerHealthNow()));
   res.json({
     pending: await store.listPending(),
     inFlight: await store.listInFlight(),
     counts: await store.statusCounts(),
-    printer: printerHealthNow(),
+    printer: await printerHealthNow(),
     capacity: { ...cap, wait: formatWait(cap.waitSeconds) },
     autoApprove: AUTO_APPROVE,
   });
@@ -370,19 +369,23 @@ const agentAuth = (req, res, next) => {
 
 /** The agent checking in, and reporting what the printer is doing. */
 app.post('/api/agent/heartbeat', agentAuth, async (req, res) => {
-  agentSeenAt = Date.now();
-  agentReport = {
-    ok: req.body?.printerOk !== false,
+  await store.setBoothHeartbeat({
+    printerOk: req.body?.printerOk !== false,
     detail: String(req.body?.detail ?? 'ok').slice(0, 300),
     lastPrintMs: Number(req.body?.lastPrintMs) || null,
-  };
-  const cap = await capacity(printerHealthNow());
+  });
+  const cap = await capacity(await printerHealthNow());
   res.json({ ok: true, capacity: cap, autoApprove: AUTO_APPROVE });
 });
 
 /** Claim the next approved sticker. Returns the line, not pixels. */
 app.post('/api/agent/next', agentAuth, async (req, res) => {
-  agentSeenAt = Date.now();
+  // Asking for work is itself a sign of life.
+  await store.setBoothHeartbeat({
+    printerOk: req.body?.printerOk !== false,
+    detail: String(req.body?.detail ?? 'polling').slice(0, 300),
+    lastPrintMs: Number(req.body?.lastPrintMs) || null,
+  });
   const job = await store.claimNextPrintJob();
   if (!job) return res.json({ job: null });
   res.json({ job: { id: job.id, text: job.text, templateId: job.template_id, attempts: job.attempts } });
@@ -426,14 +429,22 @@ let localPrinterHealth = { ok: true, mode: printMode(), detail: 'not yet used', 
  * keeps accepting while the booth is unplugged is the exact failure this is
  * meant to prevent.
  */
-const printerHealthNow = () => {
+const printerHealthNow = async () => {
   if (!HOSTED) return localPrinterHealth;
-  const age = Date.now() - agentSeenAt;
-  if (!agentSeenAt || age > AGENT_TIMEOUT_MS) {
+
+  // Read from the store, not from memory. Serverless invocations share nothing,
+  // so a heartbeat that landed on one instance is invisible to the next - the
+  // booth would have flickered between up and down depending on which machine
+  // happened to answer.
+  let beat = null;
+  try { beat = await store.getBoothHeartbeat(); } catch { /* store down: treat as no booth */ }
+
+  const age = beat ? Date.now() - beat.seenAt : Infinity;
+  if (!beat || age > AGENT_TIMEOUT_MS) {
     return { ok: false, mode: 'agent', lastPrintMs: null,
-      detail: agentSeenAt ? `booth agent last seen ${Math.round(age / 1000)}s ago` : 'waiting for the booth agent' };
+      detail: beat ? `booth agent last seen ${Math.round(age / 1000)}s ago` : 'waiting for the booth agent' };
   }
-  return { ok: agentReport.ok, mode: 'agent', detail: agentReport.detail, lastPrintMs: agentReport.lastPrintMs ?? null };
+  return { ok: beat.printerOk, mode: 'agent', detail: beat.detail, lastPrintMs: beat.lastPrintMs ?? null };
 };
 let pumping = false;
 let retryTimer = null;
@@ -499,13 +510,13 @@ async function pump() {
 app.get('/api/health', async (req, res) => {
   res.json({
     store: store.kind,
-    printer: printerHealthNow(),
+    printer: await printerHealthNow(),
     printerName: printerName() || '(system default)',
     visiblePrinters: await listPrinters(),
     counts: await store.statusCounts(),
     placeholderBrand: USING_PLACEHOLDER_LOCKUP,
     printSeconds: PRINT_SECONDS,
-    capacity: await capacity(printerHealthNow()),
+    capacity: await capacity(await printerHealthNow()),
     autoApprove: AUTO_APPROVE,
     joinUrl: JOIN_URL(req),
   });

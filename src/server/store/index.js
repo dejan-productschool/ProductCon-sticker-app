@@ -4,15 +4,19 @@
 // SQLite file. Both expose the same async interface, so nothing above this
 // layer knows or cares which one it is talking to.
 
-// SQLite writes a file, which a serverless filesystem will not allow. Rather
-// than crashing on the first request with an ENOENT nobody can interpret, a
-// hosted deployment with no DATABASE_URL loads a store that fails loudly and
-// says exactly what is missing.
-const hosted = !!process.env.VERCEL || process.env.STICKER_HOSTED === '1';
+// Two different constraints, deliberately not conflated:
+//
+//   STICKER_HOSTED - there is no printer here, wait for the booth agent.
+//   VERCEL         - the filesystem is read-only, SQLite cannot be used.
+//
+// Only the second one rules out SQLite. Running hosted mode locally against a
+// SQLite file is a legitimate way to exercise the agent protocol without
+// deploying, and keying this off STICKER_HOSTED took that away.
+const readOnlyFs = !!process.env.VERCEL;
 
 const impl = process.env.DATABASE_URL
   ? await import('./postgres.js')
-  : hosted
+  : readOnlyFs
     ? await import('./missing.js')
     : await import('./sqlite.js');
 
@@ -23,7 +27,7 @@ export const {
   kind, insertIfRoom, getByRequest, getSticker, waitingCount, positionOf,
   liveTicketFor, lastPrintedFor, listPending, listInFlight, listPrinted,
   printedCount, statusCounts, allAnswers, approve, reject, claimNextPrintJob,
-  markPrinted, markFailed, recoverInterrupted,
+  markPrinted, markFailed, recoverInterrupted, setBoothHeartbeat, getBoothHeartbeat,
 } = impl;
 
 /** How the room answered, counted. Feeds the wall. */

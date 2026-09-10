@@ -42,6 +42,16 @@ async function init() {
     CREATE INDEX IF NOT EXISTS idx_printed ON stickers(printed_at DESC);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_request ON stickers(request_id) WHERE request_id <> '';
     CREATE INDEX IF NOT EXISTS idx_device ON stickers(device_id, id);
+
+    -- One row. Serverless invocations share no memory, so the booth agent's
+    -- liveness has to live somewhere every one of them can see it.
+    CREATE TABLE IF NOT EXISTS booth (
+      id            INTEGER PRIMARY KEY CHECK (id = 1),
+      seen_at       TIMESTAMPTZ,
+      printer_ok    BOOLEAN NOT NULL DEFAULT TRUE,
+      detail        TEXT    NOT NULL DEFAULT '',
+      last_print_ms INTEGER
+    );
   `);
   return ready;
 }
@@ -118,3 +128,25 @@ export const markFailed = async (id, status, error) => {
 };
 export const recoverInterrupted = async () =>
   (await many(`UPDATE stickers SET status = 'approved' WHERE status = 'printing' RETURNING id`)).length;
+
+export const setBoothHeartbeat = async ({ printerOk, detail, lastPrintMs }) => {
+  await many(
+    `INSERT INTO booth (id, seen_at, printer_ok, detail, last_print_ms)
+     VALUES (1, now(), $1, $2, $3)
+     ON CONFLICT (id) DO UPDATE SET
+       seen_at = now(), printer_ok = EXCLUDED.printer_ok,
+       detail = EXCLUDED.detail, last_print_ms = EXCLUDED.last_print_ms`,
+    [!!printerOk, detail ?? '', lastPrintMs ?? null]
+  );
+};
+
+export const getBoothHeartbeat = async () => {
+  const row = await one(`SELECT seen_at, printer_ok, detail, last_print_ms FROM booth WHERE id = 1`);
+  if (!row?.seen_at) return null;
+  return {
+    seenAt: new Date(row.seen_at).getTime(),
+    printerOk: row.printer_ok,
+    detail: row.detail,
+    lastPrintMs: row.last_print_ms,
+  };
+};

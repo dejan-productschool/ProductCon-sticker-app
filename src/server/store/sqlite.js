@@ -39,6 +39,16 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_printed ON stickers(printed_at DESC);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_request ON stickers(request_id) WHERE request_id <> '';
   CREATE INDEX IF NOT EXISTS idx_device ON stickers(device_id, id);
+
+  -- One row. The booth agent's last check-in, so liveness survives a restart
+  -- and is visible to every process asking, not just the one it phoned.
+  CREATE TABLE IF NOT EXISTS booth (
+    id           INTEGER PRIMARY KEY CHECK (id = 1),
+    seen_at      TEXT,
+    printer_ok   INTEGER NOT NULL DEFAULT 1,
+    detail       TEXT    NOT NULL DEFAULT '',
+    last_print_ms INTEGER
+  );
 `);
 
 // Older booth databases predate some columns. Adding them beats making anyone
@@ -81,7 +91,12 @@ const s = {
   markPrinted: q(`UPDATE stickers SET status = 'printed', printed_at = datetime('now'), last_error = NULL WHERE id = ?`),
   markFailed: q(`UPDATE stickers SET status = ?, last_error = ? WHERE id = ?`),
   requeueStuck: q(`UPDATE stickers SET status = 'approved' WHERE status = 'printing'`),
-  lastId: q(`SELECT last_insert_rowid() AS id`),
+  beat: q(`INSERT INTO booth (id, seen_at, printer_ok, detail, last_print_ms)
+           VALUES (1, datetime('now'), ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             seen_at = datetime('now'), printer_ok = excluded.printer_ok,
+             detail = excluded.detail, last_print_ms = excluded.last_print_ms`),
+  booth: q(`SELECT seen_at, printer_ok, detail, last_print_ms FROM booth WHERE id = 1`),
 };
 
 export const kind = 'sqlite';
@@ -120,3 +135,17 @@ export const claimNextPrintJob = async () => s.claimNext.get() ?? null;
 export const markPrinted = async (id) => { s.markPrinted.run(id); };
 export const markFailed = async (id, status, error) => { s.markFailed.run(status, error, id); };
 export const recoverInterrupted = async () => s.requeueStuck.run().changes;
+
+export const setBoothHeartbeat = async ({ printerOk, detail, lastPrintMs }) => {
+  s.beat.run(printerOk ? 1 : 0, detail ?? '', lastPrintMs ?? null);
+};
+export const getBoothHeartbeat = async () => {
+  const row = s.booth.get();
+  if (!row?.seen_at) return null;
+  return {
+    seenAt: Date.parse(`${row.seen_at.replace(' ', 'T')}Z`),
+    printerOk: !!row.printer_ok,
+    detail: row.detail,
+    lastPrintMs: row.last_print_ms,
+  };
+};

@@ -31,3 +31,5 @@ export const claimNextPrintJob = fail;
 export const markPrinted = fail;
 export const markFailed = fail;
 export const recoverInterrupted = fail;
+export const setBoothHeartbeat = fail;
+export const getBoothHeartbeat = fail;

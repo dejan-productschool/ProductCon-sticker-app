@@ -75,7 +75,7 @@ async function handle(job) {
 async function loop() {
   for (;;) {
     try {
-      const { job } = await call('/api/agent/next');
+      const { job } = await call('/api/agent/next', { printerOk, detail: printerDetail, lastPrintMs });
 
       if (!job) {
         await heartbeat();

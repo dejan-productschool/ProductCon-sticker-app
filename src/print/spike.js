@@ -95,7 +95,7 @@ export function targetSvg() {
   }
 
   // Colour patches. ZINK is not a screen; this is how the palette really lands.
-  const swatches = [P.blue, P.blueDk, P.violet, P.mauve, P.amber, P.navy, P.ink, '#808080'];
+  const swatches = [P.orange, P.coral, P.magenta, P.violet, P.blue, P.blueDeep, P.ink, '#808080'];
   const sw = full.w / swatches.length;
   swatches.forEach((c, i) => {
     parts.push(`<rect x="${(full.x + i * sw).toFixed(2)}" y="${BAND.swatches}" width="${sw.toFixed(2)}"

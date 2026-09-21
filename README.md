@@ -13,9 +13,9 @@ Three taps, about twenty seconds, no typing.
 Six designed templates, no generative AI at run time, everything running on one
 machine at the booth.
 
-Built on the real Product School system: brand blue `#2758E2` and the deep navy
-and off-white from the wordmark itself, the AIPMC decks' amber -> mauve ->
-violet -> blue ramp, the actual lockup, and Figtree + JetBrains Mono.
+Built on Product School Foundations: white paper, ink `#0A0A0B`, square
+corners, the spectrum used once, the actual lockup, and Figtree + JetBrains
+Mono standing in for Saans + Antarctican Mono.
 
 ## The numbers everything derives from
 
@@ -265,10 +265,9 @@ would rather turn somebody away honestly than take a job it cannot finish.
 
 ## Still open
 
-- [ ] **Type licensing.** Product School's own faces are saans / saansDisplay /
-      antarcticanMono, which are licensed and not redistributable, so the
-      templates use Figtree + JetBrains Mono - the open pair the AIPMC decks
-      already use. If the licence covers this, drop the .ttf into
+- [ ] **Type licensing.** Product School Foundations uses Saans + Antarctican
+      Mono, which are licensed and not redistributable, so the templates use
+      Figtree + JetBrains Mono. If the licence covers this, drop the files into
       `assets/fonts` and change `FACES` in `src/compose/typeset.js`.
 - [ ] **The repo is public** and now carries the real wordmark and palette.
       Worth a nod from whoever owns the brand before pushing.

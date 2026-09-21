@@ -5,10 +5,10 @@
 // emit <path> elements. Same input, same pixels, on the Mac it was designed on
 // and on the Windows mini PC in the hall, with no fonts installed there.
 //
-// Fonts are Figtree and JetBrains Mono - the pair the AIPMC decks use. Product
-// School's own faces are saans / saansDisplay / antarcticanMono, which are
-// licensed and not redistributable, so they are not vendored here. If the
-// licence covers this, drop the .ttf into assets/fonts and change FACES.
+// Fonts are Figtree and JetBrains Mono, the open stand-ins for Saans and
+// Antarctican Mono from Product School Foundations. The licensed faces are
+// not redistributable, so they are not vendored here. If the licence covers
+// this, drop the files into assets/fonts and change FACES.
 
 import * as fontkit from 'fontkit';
 import { fileURLToPath } from 'node:url';
@@ -121,7 +121,7 @@ function wrap(text, opts) {
 export function fitText(text, box, style = {}) {
   const {
     face = DEFAULT_FACE,
-    weight = 800,
+    weight = 500,
     tracking = 0,          // em units, added between glyphs
     lineHeight = 1.05,     // multiple of font size
     align = 'center',      // left | center | right

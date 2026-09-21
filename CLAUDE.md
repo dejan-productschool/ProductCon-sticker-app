@@ -33,8 +33,8 @@ in it are not up for renegotiation without asking.
   with no fonts installed.
 - `src/compose/brand.js` holds the real palette and loads the real wordmark from
   `assets/brand/lockup.svg`. It is the only file that carries a brand colour.
-- Type is Figtree + JetBrains Mono (the AIPMC decks' pair). Product School's own
-  saans / antarcticanMono are licensed and deliberately not vendored - see
+- Type is Figtree + JetBrains Mono, standing in for Saans + Antarctican Mono
+  from Product School Foundations. The licensed faces are not vendored - see
   `FACES` in `src/compose/typeset.js`.
 - Re-run `node src/compose/limit.js` after changing any template's text box, and
   `npm run lines` after editing content/survey.json.

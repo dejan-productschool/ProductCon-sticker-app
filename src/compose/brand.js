@@ -1,18 +1,13 @@
-// Product School brand.
+// Product School brand, from Product School Foundations.
 //
-// Colours come from two places, both checked rather than guessed:
-//   1. app.productschool.dev  - the product surface. Brand blue #2758E2, deep
-//      navy #07182C, off-white #FCFCFC.
-//   2. The AIPMC 2026.1 module decks in ps-content-library - the ink ground and
-//      the amber -> mauve -> violet -> blue accent ramp.
+// White paper, a single near-black ink, and the spectrum used once. Not the
+// legacy navy decks, and not the product-app blue.
 //
-// The lockup in assets/brand/lockup.svg is Product School's own wordmark, taken
-// from ps-content-studio and stripped of its baked-in fill so it can be
-// recoloured per template.
+// The lockup in assets/brand/lockup.svg is Product School's own wordmark,
+// stripped of its baked-in fill so it can be recoloured per template.
 //
-// Type is Figtree + JetBrains Mono, the open pair the decks use. The real faces
-// are saans / saansDisplay / antarcticanMono, which are licensed and not
-// redistributable - see the note in typeset.js.
+// Type is Figtree + JetBrains Mono. The real faces are Saans / Antarctican
+// Mono, which are licensed and not redistributable - see typeset.js.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -24,23 +19,42 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const LOCKUP_SVG_PATH = join(HERE, '../../assets/brand/lockup.svg');
 
 export const PALETTE = {
-  // grounds
-  ink:    '#0A0A0B',   // deck ground, near black
-  navy:   '#07182C',   // the wordmark's own dark
-  paper:  '#FCFCFC',   // the wordmark's own light
-  cream:  '#F4F4F4',   // app surface grey
+  ink:       '#0A0A0B',
+  paper:     '#FFFFFF',
+  paperTint: '#F6F6F7',
+  blue:      '#2B54E8',
+  blueDeep:  '#4048DC',
+  violet:    '#7B61E8',
+  magenta:   '#C77BC0',
+  coral:     '#E27A6C',
+  orange:    '#F59A3F',
+  orangeInk: '#E07B1E',
+  ink80:     'rgba(10,10,11,0.78)',
+  ink60:     'rgba(10,10,11,0.60)',
+  ink45:     'rgba(10,10,11,0.45)',
+  ink28:     'rgba(10,10,11,0.28)',
+  ink12:     'rgba(10,10,11,0.12)',
 
-  // primary
-  blue:   '#2758E2',   // brand blue, app
-  blueDk: '#1A2B6B',   // deep blue, app
-
-  // the deck's accent ramp, used sparingly
-  violet: '#7B61E8',
+  // Aliases kept for the print spike and older notes.
+  navy:   '#0A0A0B',
+  cream:  '#F6F6F7',
   mauve:  '#C77BC0',
   amber:  '#F59A3F',
+  blueDk: '#4048DC',
 };
 
-export const RAMP = [PALETTE.amber, PALETTE.mauve, PALETTE.violet, PALETTE.blue];
+export const RAMP = [PALETTE.orange, PALETTE.magenta, PALETTE.violet, PALETTE.blue];
+export const COOL = [
+  { offset: 0, color: PALETTE.blue },
+  { offset: 0.55, color: PALETTE.blueDeep },
+  { offset: 1, color: PALETTE.violet },
+];
+export const WARM = [
+  { offset: 0, color: PALETTE.orange },
+  { offset: 0.34, color: PALETTE.coral },
+  { offset: 0.62, color: PALETTE.magenta },
+  { offset: 1, color: PALETTE.violet },
+];
 
 export const LOCKUP_WORDMARK = 'PRODUCT SCHOOL';
 
@@ -54,6 +68,29 @@ export const LOCKUP = {
 
 const lockupFile = existsSync(LOCKUP_SVG_PATH) ? readFileSync(LOCKUP_SVG_PATH, 'utf8') : null;
 
+function stops(stops) {
+  return stops.map((s, i, a) => {
+    const offset = typeof s === 'string' ? (i / (a.length - 1)).toFixed(3) : s.offset;
+    const color = typeof s === 'string' ? s : s.color;
+    return `<stop offset="${offset}" stop-color="${color}"/>`;
+  }).join('');
+}
+
+/** Spectrum rule. Orange to blue, left to right. The brand signature. */
+export function spectrumDef(id = 'spectrum') {
+  return `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0">${stops(RAMP)}</linearGradient>`;
+}
+
+/** Cool fill. Blue to violet, for the one loud template. */
+export function coolDef(id = 'cool') {
+  return `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1">${stops(COOL)}</linearGradient>`;
+}
+
+/** Warm fill. Orange to violet, for a moment. */
+export function warmDef(id = 'warm') {
+  return `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0.45">${stops(WARM)}</linearGradient>`;
+}
+
 /**
  * The lockup, as SVG, scaled into its slot and recoloured.
  *
@@ -61,7 +98,7 @@ const lockupFile = existsSync(LOCKUP_SVG_PATH) ? readFileSync(LOCKUP_SVG_PATH, '
  * carries. Every template has a different ground and the mark has to sit on all
  * of them.
  */
-export function lockupSvg({ fill = PALETTE.paper, align = 'left' } = {}) {
+export function lockupSvg({ fill = PALETTE.ink, align = 'left' } = {}) {
   if (lockupFile) {
     const viewBox = lockupFile.match(/viewBox="([^"]+)"/)?.[1];
     if (viewBox) {
@@ -85,7 +122,7 @@ export function lockupSvg({ fill = PALETTE.paper, align = 'left' } = {}) {
   };
   return textToSvg(
     fitText(LOCKUP_WORDMARK, box, {
-      weight: 700, tracking: 0.14, maxFontSize: LOCKUP.h, minFontSize: 10, step: 1,
+      face: 'mono', weight: 500, tracking: 0.2, maxFontSize: LOCKUP.h, minFontSize: 10, step: 1,
       align, vAlign: 'middle',
     }),
     { fill }

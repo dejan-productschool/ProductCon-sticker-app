@@ -9,7 +9,7 @@
 // template may write into.
 
 import { CANVAS as C, SAFE, SAFE_INSET } from './constants.js';
-import { PALETTE as P, spectrumDef, warmDef, lockupSvg } from './brand.js';
+import { PALETTE as P, spectrumDef, warmDef, lockupSvg, LOCKUP } from './brand.js';
 import { fitText, textToSvg } from './typeset.js';
 
 const px = (n) => Number(n.toFixed(2));
@@ -26,8 +26,14 @@ function eyebrow(text, box, { fill, align = 'left', tracking = 0.2, size } = {})
 }
 
 // Room reserved at the bottom of every template for the lockup, so text never
-// crowds it.
-const LOCKUP_BAND = Math.round(C * 0.10);
+// crowds it. The frame and card hang `SAFE_INSET * 0.35` below this band; the
+// gap term is the ~17px of air the frame had under a 21px mark. Growing the
+// band with LOCKUP.h keeps that air, and the same slot, on all six.
+const LOCKUP_GAP = Math.round(C * 0.028);
+const LOCKUP_BAND = LOCKUP.h + Math.round(SAFE_INSET * 0.65) + LOCKUP_GAP;
+// Air kept under the Rule template's type. Its box does not sit inside the
+// frame, so without this cap a large centred line's descenders meet the mark.
+const RULE_CLEAR = Math.round(C * 0.058);
 
 const TEXT_AREA = { x: SAFE.x, y: SAFE.y, w: SAFE.w, h: SAFE.h - LOCKUP_BAND };
 
@@ -167,10 +173,11 @@ export const TEMPLATES = [
     id: 'ramp',
     name: 'Rule',
     description: 'Ink on paper, spectrum rule. The Foundations lockup.',
-    textBox: {
-      x: SAFE.x, y: px(C * 0.135),
-      w: SAFE.w, h: px(C * 0.62),
-    },
+    textBox: (() => {
+      const y = px(C * 0.135);
+      const maxBottom = C - SAFE_INSET - LOCKUP.h - RULE_CLEAR;
+      return { x: SAFE.x, y, w: SAFE.w, h: Math.min(px(C * 0.62), px(maxBottom - y)) };
+    })(),
     textStyle: { weight: 500, tracking: -0.03, lineHeight: 1.02, maxFontSize: 116, minFontSize: 34 },
     textFill: P.ink,
     lockup: { fill: P.ink, align: 'left' },

@@ -60,8 +60,15 @@ export const LOCKUP_WORDMARK = 'PRODUCT SCHOOL';
 
 // Fixed slot. The lockup sits in the same place at the same size on all six
 // templates, and no attendee input can reach it.
+//
+// 0.034 of the canvas is 21px, about 1.7mm on the 50mm sticker. The wordmark
+// letters only occupy the middle of the SVG (the shield is the full height),
+// so "Product School" was under 1mm tall and did not read once printed.
+// 0.146 is 90px, 4.3× that slot: about 7.3mm overall and ~3.3mm on the letters.
+// The next step up (92px) leaves less than a safe inset of air on the right.
+export const LOCKUP_HEIGHT_RATIO = 0.146;
 export const LOCKUP = {
-  h: Math.round(CANVAS * 0.034),
+  h: Math.round(CANVAS * LOCKUP_HEIGHT_RATIO),
   x: SAFE_INSET,
   bottom: SAFE_INSET,
 };

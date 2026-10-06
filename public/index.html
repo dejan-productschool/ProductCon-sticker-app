@@ -241,6 +241,9 @@
 
 <script>
 const IDLE_MS = 45000;
+// Ready is a receipt, not a place to stay. Long enough to read the number,
+// then the phone returns to attract for the next person.
+const READY_HOLD_MS = 12000;
 
 let cfg = { questions: [], maxChars: 64, freeText: true };
 let step = 0;               // index into cfg.questions
@@ -533,6 +536,10 @@ function showTicket(t) {
     $('waitBar').style.width = `${pct}%`;
   }
   go('wait');
+  // go() clears the idle timer on the wait screen so a live queue ticket is
+  // not wiped while someone is still waiting. Ready is different: hold the
+  // number briefly, then reset so the next person gets attract.
+  if (t.status === 'printed') resetIdle(READY_HOLD_MS);
 }
 
 /**
@@ -544,9 +551,12 @@ function showTicket(t) {
 function startPolling() {
   stopPolling();
   const tick = async () => {
-    if (!ticketId || document.hidden) return;
+    const id = ticketId;
+    if (!id || document.hidden) return;
     try {
-      const res = await fetch(`/api/ticket/${ticketId}`);
+      const res = await fetch(`/api/ticket/${id}`);
+      // reset() may have cleared this ticket while the request was in flight.
+      if (ticketId !== id) return;
       if (res.ok) showTicket(await res.json());
     } catch { /* the booth will still be there in three seconds */ }
   };
@@ -690,7 +700,12 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('pointerdown', () => {
-  if (!on('attract')) resetIdle(on('done') ? 7000 : IDLE_MS);
+  if (on('attract')) return;
+  // Done and Ready are receipts. A tap should keep the short hold, not
+  // stretch it out to the full choosing idle.
+  if (on('done')) return resetIdle(7000);
+  if (on('wait') && $('wait').classList.contains('ready')) return resetIdle(READY_HOLD_MS);
+  resetIdle(IDLE_MS);
 });
 
 fetch('/api/config').then((r) => r.json()).then((c) => {
@@ -700,17 +715,27 @@ fetch('/api/config').then((r) => r.json()).then((c) => {
   buildKeyboard();
   renderEntry();
 
-  // Somebody who closed the tab and scanned again should land back on their
-  // ticket, not at the start of a survey they already finished.
+  // Somebody who closed the tab and scanned again should land back on a
+  // ticket that is still in the queue. A printed or rejected sticker is
+  // finished: restoring it pins the phone on Ready, and polling has stopped.
   const held = savedTicket();
   if (held) {
-    ticketId = held;
     fetch(`/api/ticket/${held}`).then((r) => (r.ok ? r.json() : null)).then((t) => {
-      if (!t || t.status === 'rejected') return forgetTicket();
+      // A newer ship() may have stored a different ticket while this fetch
+      // was in flight. Do not forget that one, and do not cover it.
+      if (ticketId && ticketId !== held) return;
+      if (!t || t.status === 'printed' || t.status === 'rejected') {
+        forgetTicket();
+        return;
+      }
+      ticketId = held;
       $('waitImg').src = renderUrl(t.text, t.templateId);
       showTicket(t);
-      if (t.status !== 'printed') startPolling();
-    }).catch(() => {});
+      startPolling();
+    }).catch(() => {
+      if (ticketId && ticketId !== held) return;
+      forgetTicket();
+    });
   }
 });
 </script>

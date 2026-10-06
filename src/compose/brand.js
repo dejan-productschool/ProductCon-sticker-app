@@ -1,10 +1,9 @@
-// Product School brand, from Product School Foundations.
+// Product School brand.
 //
-// White paper, a single near-black ink, and the spectrum used once. Not the
-// legacy navy decks, and not the product-app blue.
-//
-// The lockup in assets/brand/lockup.svg is Product School's own wordmark,
-// stripped of its baked-in fill so it can be recoloured per template.
+// White paper, a single near-black ink for the sticker type, and the spectrum
+// used once. The lockups are the horizontal marks from brand.productschool.com,
+// with their fills left as approved: Brand Blue Deep on the mark, ink or white
+// on the wordmark. Do not recolour them.
 //
 // Type is Figtree + JetBrains Mono. The real faces are Saans / Antarctican
 // Mono, which are licensed and not redistributable - see typeset.js.
@@ -16,14 +15,18 @@ import { CANVAS, SAFE_INSET } from './constants.js';
 import { fitText, textToSvg } from './typeset.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const LOCKUP_SVG_PATH = join(HERE, '../../assets/brand/lockup.svg');
+const BRAND_DIR = join(HERE, '../../assets/brand');
 
 export const PALETTE = {
   ink:       '#0A0A0B',
   paper:     '#FFFFFF',
   paperTint: '#F6F6F7',
-  blue:      '#2B54E8',
-  blueDeep:  '#4048DC',
+  // Brand Blue Deep. The mark, and the blue end of the spectrum.
+  blue:      '#2758E2',
+  // Next darker official blue (primary-300), for the cool gradient only.
+  blueDeep:  '#1241B0',
+  // Ink of the wordmark on the full-color lockup. Sticker type stays `ink`.
+  wordmark:  '#262626',
   violet:    '#7B61E8',
   magenta:   '#C77BC0',
   coral:     '#E27A6C',
@@ -40,7 +43,7 @@ export const PALETTE = {
   cream:  '#F6F6F7',
   mauve:  '#C77BC0',
   amber:  '#F59A3F',
-  blueDk: '#4048DC',
+  blueDk: '#1241B0',
 };
 
 export const RAMP = [PALETTE.orange, PALETTE.magenta, PALETTE.violet, PALETTE.blue];
@@ -58,22 +61,58 @@ export const WARM = [
 
 export const LOCKUP_WORDMARK = 'PRODUCT SCHOOL';
 
-// Fixed slot. The lockup sits in the same place at the same size on all six
-// templates, and no attendee input can reach it.
-//
-// 0.034 of the canvas is 21px, about 1.7mm on the 50mm sticker. The wordmark
-// letters only occupy the middle of the SVG (the shield is the full height),
-// so "Product School" was under 1mm tall and did not read once printed.
-// 0.146 is 90px, 4.3× that slot: about 7.3mm overall and ~3.3mm on the letters.
-// The next step up (92px) leaves less than a safe inset of air on the right.
-export const LOCKUP_HEIGHT_RATIO = 0.146;
-export const LOCKUP = {
-  h: Math.round(CANVAS * LOCKUP_HEIGHT_RATIO),
-  x: SAFE_INSET,
-  bottom: SAFE_INSET,
+// Approved lockups. `color` on light grounds, `dark` on dark grounds.
+// Monochrome files are the fallbacks from the brand site; nothing in the six
+// templates asks for them.
+export const LOCKUP_FILES = {
+  color: 'lockup-color.svg',
+  dark: 'lockup-color-dark.svg',
+  black: 'lockup-black.svg',
+  white: 'lockup-white.svg',
 };
 
-const lockupFile = existsSync(LOCKUP_SVG_PATH) ? readFileSync(LOCKUP_SVG_PATH, 'utf8') : null;
+function readLockup(name) {
+  const path = join(BRAND_DIR, name);
+  if (!existsSync(path)) return null;
+  const svg = readFileSync(path, 'utf8');
+  const viewBox = svg.match(/viewBox="([^"]+)"/)?.[1];
+  if (!viewBox) return null;
+  const inner = svg.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
+  const parts = viewBox.trim().split(/[\s,]+/).map(Number);
+  const vbW = parts[2];
+  const vbH = parts[3];
+  if (!vbW || !vbH) return null;
+  return { inner, vbW, vbH, file: name };
+}
+
+const lockups = Object.fromEntries(
+  Object.entries(LOCKUP_FILES).map(([key, name]) => [key, readLockup(name)]),
+);
+
+const metricsSource = lockups.color || lockups.dark || lockups.black || lockups.white;
+
+// Target height. The previous shield sat near 21px; this is the larger slot.
+// The new lockup is wider, so 90px tall runs past the safe area on the right.
+// Width is capped to the safe box and the height follows, same on every template.
+const LOCKUP_TARGET_H = 90;
+
+function lockupSlot(vbW, vbH) {
+  const maxW = CANVAS - SAFE_INSET * 2;
+  const aspect = vbW / vbH;
+  let h = LOCKUP_TARGET_H;
+  let w = h * aspect;
+  if (w > maxW) {
+    w = maxW;
+    h = w / aspect;
+  }
+  h = Number(h.toFixed(2));
+  w = Number((h * aspect).toFixed(2));
+  return { h, w, x: SAFE_INSET, bottom: SAFE_INSET, targetH: LOCKUP_TARGET_H };
+}
+
+export const LOCKUP = metricsSource
+  ? lockupSlot(metricsSource.vbW, metricsSource.vbH)
+  : { h: LOCKUP_TARGET_H, w: CANVAS - SAFE_INSET * 2, x: SAFE_INSET, bottom: SAFE_INSET, targetH: LOCKUP_TARGET_H };
 
 function stops(stops) {
   return stops.map((s, i, a) => {
@@ -99,24 +138,20 @@ export function warmDef(id = 'warm') {
 }
 
 /**
- * The lockup, as SVG, scaled into its slot and recoloured.
+ * The lockup, scaled into its fixed slot.
  *
- * The source file has had its fills stripped, so `fill` on the wrapping group
- * carries. Every template has a different ground and the mark has to sit on all
- * of them.
+ * `variant` picks an approved file. Fills stay as drawn in the SVG: the brand
+ * does not allow recolouring the lockup. Light templates use `color` (ink
+ * wordmark, blue mark). Dark templates use `dark` (white wordmark, blue mark).
  */
-export function lockupSvg({ fill = PALETTE.ink, align = 'left' } = {}) {
-  if (lockupFile) {
-    const viewBox = lockupFile.match(/viewBox="([^"]+)"/)?.[1];
-    if (viewBox) {
-      const inner = lockupFile.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
-      const [, , vbW, vbH] = viewBox.trim().split(/[\s,]+/).map(Number);
-      const scale = LOCKUP.h / vbH;
-      const w = vbW * scale;
-      const x = align === 'right' ? CANVAS - SAFE_INSET - w : LOCKUP.x;
-      const y = CANVAS - LOCKUP.bottom - LOCKUP.h;
-      return `<g fill="${fill}" transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${scale.toFixed(6)})">${inner}</g>`;
-    }
+export function lockupSvg({ variant = 'color', align = 'left', fill = PALETTE.ink } = {}) {
+  const asset = lockups[variant] || lockups.color;
+  if (asset) {
+    const scale = LOCKUP.h / asset.vbH;
+    const w = asset.vbW * scale;
+    const x = align === 'right' ? CANVAS - SAFE_INSET - w : LOCKUP.x;
+    const y = CANVAS - LOCKUP.bottom - LOCKUP.h;
+    return `<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${scale.toFixed(6)})">${asset.inner}</g>`;
   }
 
   // Fallback only: typeset the words if the asset ever goes missing, so a
@@ -136,4 +171,4 @@ export function lockupSvg({ fill = PALETTE.ink, align = 'left' } = {}) {
   );
 }
 
-export const USING_PLACEHOLDER_LOCKUP = !lockupFile;
+export const USING_PLACEHOLDER_LOCKUP = !lockups.color;

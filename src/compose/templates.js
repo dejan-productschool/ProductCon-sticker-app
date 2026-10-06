@@ -25,12 +25,16 @@ function eyebrow(text, box, { fill, align = 'left', tracking = 0.2, size } = {})
   );
 }
 
-// Room reserved at the bottom of every template for the lockup, so text never
-// crowds it. The frame and card hang `SAFE_INSET * 0.35` below this band; the
-// gap term is the ~17px of air the frame had under a 21px mark. Growing the
-// band with LOCKUP.h keeps that air, and the same slot, on all six.
-const LOCKUP_GAP = Math.round(C * 0.028);
-const LOCKUP_BAND = LOCKUP.h + Math.round(SAFE_INSET * 0.65) + LOCKUP_GAP;
+// Room reserved at the bottom of every template for the lockup, so text and
+// the card/frame never meet it.
+//
+// The card and the frame end at `C - LOCKUP_BAND - FRAME_TAIL`. That edge
+// has to sit LOCKUP_CLEAR above the artwork. A full 1× mark-height exclusion
+// zone does not fit on a 50 mm square once the lockup is this wide, so the
+// gap is the air that keeps type and frames off the mark.
+const LOCKUP_CLEAR = 24;
+const FRAME_TAIL = SAFE_INSET * 0.35;
+const LOCKUP_BAND = Math.ceil(LOCKUP.h + LOCKUP_CLEAR + (SAFE_INSET - FRAME_TAIL));
 // Air kept under the Rule template's type. Its box does not sit inside the
 // frame, so without this cap a large centred line's descenders meet the mark.
 const RULE_CLEAR = Math.round(C * 0.058);
@@ -45,14 +49,14 @@ const FRAME = (() => {
   const inset = SAFE_INSET;
   const stroke = px(C * 0.008);
   const y = inset;
-  const h = px(C - inset - LOCKUP_BAND - inset * 0.35);
+  const h = px(C - inset - LOCKUP_BAND - FRAME_TAIL);
   return { x: inset, y, w: C - inset * 2, h, stroke };
 })();
 
 const CARD = (() => {
   const inset = SAFE_INSET;
   const y = inset;
-  const h = px(C - inset - LOCKUP_BAND - inset * 0.35);
+  const h = px(C - inset - LOCKUP_BAND - FRAME_TAIL);
   return { x: inset, y, w: C - inset * 2, h };
 })();
 
@@ -74,7 +78,7 @@ export const TEMPLATES = [
     textBox: TEXT_AREA,
     textStyle: { weight: 500, tracking: -0.03, lineHeight: 1.0, maxFontSize: 132, minFontSize: 40 },
     textFill: P.ink,
-    lockup: { fill: P.ink, align: 'left' },
+    lockup: { variant: 'color', align: 'left' },
     behind: () => `
       <defs>${warmDef('block-warm')}</defs>
       <rect width="${C}" height="${C}" fill="url(#block-warm)"/>`,
@@ -90,7 +94,7 @@ export const TEMPLATES = [
     },
     textStyle: { weight: 500, tracking: -0.02, lineHeight: 1.08, maxFontSize: 104, minFontSize: 34 },
     textFill: P.ink,
-    lockup: { fill: P.ink, align: 'left' },
+    lockup: { variant: 'color', align: 'left' },
     behind: () => {
       const { x, y, w, h } = CARD;
       return `
@@ -111,7 +115,7 @@ export const TEMPLATES = [
     },
     textStyle: { weight: 500, tracking: -0.02, lineHeight: 1.02, maxFontSize: 86, minFontSize: 26 },
     textFill: P.ink,
-    lockup: { fill: P.ink, align: 'left' },
+    lockup: { variant: 'color', align: 'left' },
     behind: () => {
       const { x, y, w, h, stroke } = FRAME;
       return `
@@ -134,7 +138,7 @@ export const TEMPLATES = [
     },
     textStyle: { weight: 500, tracking: -0.02, lineHeight: 1.1, maxFontSize: 92, minFontSize: 32 },
     textFill: P.ink,
-    lockup: { fill: P.ink, align: 'left' },
+    lockup: { variant: 'color', align: 'left' },
     behind: () => `
       <defs>${spectrumDef('ticket-spectrum')}</defs>
       <rect width="${C}" height="${C}" fill="${P.paper}"/>
@@ -159,7 +163,7 @@ export const TEMPLATES = [
       maxFontSize: 64, minFontSize: 24, align: 'left', vAlign: 'top',
     },
     textFill: P.paper,
-    lockup: { fill: P.paper, align: 'left' },
+    lockup: { variant: 'dark', align: 'left' },
     behind: () => `
       <defs>${spectrumDef('term-spectrum')}</defs>
       <rect width="${C}" height="${C}" fill="${P.ink}"/>
@@ -180,7 +184,7 @@ export const TEMPLATES = [
     })(),
     textStyle: { weight: 500, tracking: -0.03, lineHeight: 1.02, maxFontSize: 116, minFontSize: 34 },
     textFill: P.ink,
-    lockup: { fill: P.ink, align: 'left' },
+    lockup: { variant: 'color', align: 'left' },
     behind: () => `
       <defs>${spectrumDef('rule-spectrum')}</defs>
       <rect width="${C}" height="${C}" fill="${P.paper}"/>

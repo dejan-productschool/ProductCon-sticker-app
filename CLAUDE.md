@@ -31,8 +31,9 @@ in it are not up for renegotiation without asking.
 - Text is rendered from font outlines via fontkit, not by a font lookup, so
   output is identical on the Mac it was built on and the Windows booth machine
   with no fonts installed.
-- `src/compose/brand.js` holds the real palette and loads the real wordmark from
-  `assets/brand/lockup.svg`. It is the only file that carries a brand colour.
+- `src/compose/brand.js` holds the palette and loads the lockup. Light
+  templates use `assets/brand/lockup-color.svg`; the dark template uses
+  `assets/brand/lockup-color-dark.svg`. The mark colour lives in those SVGs.
 - Type is Figtree + JetBrains Mono, standing in for Saans + Antarctican Mono
   from Product School Foundations. The licensed faces are not vendored - see
   `FACES` in `src/compose/typeset.js`.

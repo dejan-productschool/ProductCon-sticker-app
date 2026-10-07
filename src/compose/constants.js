@@ -16,12 +16,10 @@ export const mmToPx = (mm) => Math.round((mm / MM_PER_INCH) * DPI);
 export const CANVAS = mmToPx(STICKER_MM); // 616
 
 // ZINK edge registration drifts a little roll to roll. Artwork bleeds to the
-// edge, but nothing that carries meaning may sit outside this box. The
-// lockup wordmark needs more than this on the right: twice this inset still
-// lost the final L on the VC-500W. That extra air is LOCKUP_RIGHT_INSET in
-// brand.js. Shapes (cards, frames, spectrum bars) stay on this line and may
-// bleed. Headlines do not: see TYPE_INSET.
-export const SAFE_INSET = Math.round(CANVAS * 0.06); // 37 px
+// edge, but nothing that carries meaning may sit outside this box. Shapes
+// (cards, frames, spectrum bars) stay on this line and may bleed. Headlines,
+// eyebrows, and the lockup use H_INSET, which is wider on the horizontal.
+export const SAFE_INSET = Math.round(CANVAS * 0.06); // 37 px, 3.0 mm
 export const SAFE = {
   x: SAFE_INSET,
   y: SAFE_INSET,
@@ -29,16 +27,16 @@ export const SAFE = {
   h: CANVAS - SAFE_INSET * 2,
 };
 
-// Horizontal air for headlines and eyebrows, both sides.
+// Horizontal print band, both sides, for headlines, eyebrows, and the lockup.
 //
-// SAFE_INSET (3 mm) is not the printable band on this VC-500W roll. A Rule
-// sticker set with "Killed my own feature. In a meeting." came back with the
-// left of the line and the trailing periods cut off, while the shorter Block
-// line, which never reached the box edge, survived. Ink was sitting about
-// 4 mm in. The lockup's 10 mm of right air does print in full, so type uses
-// that same inset on the left and the right. The lockup slot itself is
-// unchanged.
-export const TYPE_INSET = mmToPx(10); // 123 px
+// Calibration sticker, same booth path (616 px PNG, 313 dpi, lp fit-to-page
+// on 50x50 mm): the 2 px border prints on the top and the bottom, so there
+// is no vertical loss and the scale is 1:1. On the left and the right the
+// border is gone and the first stripe still visible is the 1 to 2 mm stripe,
+// about 1.5 mm lost per side. Content keeps the usual 3 mm past that loss.
+// The 10 mm insets were a guess; they shrank the headline away from the preview.
+export const H_LOSS_MM = 1.5;
+export const H_INSET = SAFE_INSET + mmToPx(H_LOSS_MM); // 55 px, 4.5 mm
 
 // Legibility floor. A sticker is read at arm's length, so what matters is cap
 // height in millimetres, not pixels. Below this the line stops reading as a

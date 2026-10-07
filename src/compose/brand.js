@@ -11,7 +11,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { CANVAS, SAFE_INSET, mmToPx } from './constants.js';
+import { CANVAS, SAFE_INSET, H_INSET } from './constants.js';
 import { fitText, textToSvg } from './typeset.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -94,23 +94,18 @@ const lockups = Object.fromEntries(
 const metricsSource = lockups.color || lockups.dark || lockups.black || lockups.white;
 
 // Target height. The previous shield sat near 21px; this is the ceiling.
-// The lockup is wider than the slot, so the right inset below is what sizes
-// it. Height follows the width cap, and every template uses this same slot.
+// The lockup is wider than the slot, so H_INSET is what sizes it. Height
+// follows the width cap, and every template uses this same slot.
 const LOCKUP_TARGET_H = 90;
 
-// Air to the right of the wordmark. The final L is flush with the SVG
-// viewBox, so this inset is the only paper between "School" and the cut.
-//
-// SAFE_INSET is 3 mm. Twice that (6 mm, 74 px) still came back from the
-// VC-500W as "Product Schoo": on this roll the right cut sits just past
-// 6 mm, and it wanders by about a letter from sticker to sticker. 10 mm
-// leaves about 3 mm of paper past that cut, the same budget the rest of
-// the sticker already keeps, stacked on the drift that already ate the L.
-// The width cap then pulls the height from about 81 px down to about 73 px.
-const LOCKUP_RIGHT_INSET = mmToPx(10);
-
+// The shield path starts at the viewBox origin (left bearing about 0), and
+// the final L ends on the viewBox's right edge. Slot x is the shield's ink.
+// A 3 mm left inset therefore put the mark 3 mm from the canvas. After the
+// measured 1.5 mm side loss, that is the paper edge. H_INSET on both sides
+// leaves the usual 3 mm inside the band that actually prints. Vertical
+// placement stays on SAFE_INSET: the calibration lost nothing top or bottom.
 function lockupSlot(vbW, vbH) {
-  const maxW = CANVAS - SAFE_INSET - LOCKUP_RIGHT_INSET;
+  const maxW = CANVAS - H_INSET * 2;
   const aspect = vbW / vbH;
   let h = LOCKUP_TARGET_H;
   let w = h * aspect;
@@ -121,8 +116,8 @@ function lockupSlot(vbW, vbH) {
   h = Number(h.toFixed(2));
   w = Number((h * aspect).toFixed(2));
   return {
-    h, w, x: SAFE_INSET, bottom: SAFE_INSET,
-    right: LOCKUP_RIGHT_INSET, targetH: LOCKUP_TARGET_H,
+    h, w, x: H_INSET, bottom: SAFE_INSET,
+    right: H_INSET, targetH: LOCKUP_TARGET_H,
   };
 }
 
@@ -130,10 +125,10 @@ export const LOCKUP = metricsSource
   ? lockupSlot(metricsSource.vbW, metricsSource.vbH)
   : {
       h: LOCKUP_TARGET_H,
-      w: CANVAS - SAFE_INSET - LOCKUP_RIGHT_INSET,
-      x: SAFE_INSET,
+      w: CANVAS - H_INSET * 2,
+      x: H_INSET,
       bottom: SAFE_INSET,
-      right: LOCKUP_RIGHT_INSET,
+      right: H_INSET,
       targetH: LOCKUP_TARGET_H,
     };
 

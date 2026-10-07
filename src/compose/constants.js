@@ -19,7 +19,8 @@ export const CANVAS = mmToPx(STICKER_MM); // 616
 // edge, but nothing that carries meaning may sit outside this box. The
 // lockup wordmark needs more than this on the right: twice this inset still
 // lost the final L on the VC-500W. That extra air is LOCKUP_RIGHT_INSET in
-// brand.js, so the other template shapes stay on this line.
+// brand.js. Shapes (cards, frames, spectrum bars) stay on this line and may
+// bleed. Headlines do not: see TYPE_INSET.
 export const SAFE_INSET = Math.round(CANVAS * 0.06); // 37 px
 export const SAFE = {
   x: SAFE_INSET,
@@ -27,6 +28,17 @@ export const SAFE = {
   w: CANVAS - SAFE_INSET * 2,
   h: CANVAS - SAFE_INSET * 2,
 };
+
+// Horizontal air for headlines and eyebrows, both sides.
+//
+// SAFE_INSET (3 mm) is not the printable band on this VC-500W roll. A Rule
+// sticker set with "Killed my own feature. In a meeting." came back with the
+// left of the line and the trailing periods cut off, while the shorter Block
+// line, which never reached the box edge, survived. Ink was sitting about
+// 4 mm in. The lockup's 10 mm of right air does print in full, so type uses
+// that same inset on the left and the right. The lockup slot itself is
+// unchanged.
+export const TYPE_INSET = mmToPx(10); // 123 px
 
 // Legibility floor. A sticker is read at arm's length, so what matters is cap
 // height in millimetres, not pixels. Below this the line stops reading as a

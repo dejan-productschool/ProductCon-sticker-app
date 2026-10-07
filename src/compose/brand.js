@@ -61,8 +61,10 @@ export const WARM = [
 
 export const LOCKUP_WORDMARK = 'PRODUCT SCHOOL';
 
-// Approved lockups. `color` on light grounds, `dark` on dark grounds.
-// Monochrome files are the fallbacks from the brand site; nothing in the six
+// Approved lockups from brand.productschool.com/refresh/brand/.
+// These four files are the refresh set (ps-lockup-color, color-dark, black,
+// white). `color` on light grounds, `dark` on dark grounds: white wordmark,
+// blue mark. Monochrome files are the fallbacks; nothing in the six
 // templates asks for them.
 export const LOCKUP_FILES = {
   color: 'lockup-color.svg',

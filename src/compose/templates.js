@@ -8,7 +8,7 @@
 // The lockup is added by the compositor afterwards, from a fixed slot no
 // template may write into.
 
-import { CANVAS as C, SAFE, SAFE_INSET, TYPE_INSET } from './constants.js';
+import { CANVAS as C, SAFE, SAFE_INSET, H_INSET } from './constants.js';
 import { PALETTE as P, spectrumDef, warmDef, lockupSvg, LOCKUP } from './brand.js';
 import { fitText, textToSvg } from './typeset.js';
 
@@ -18,10 +18,14 @@ const px = (n) => Number(n.toFixed(2));
 // A box that is already inside is unchanged, so the frame's type, which is
 // inset by the square itself, does not get a second margin.
 function clampX(box) {
-  const x = Math.max(box.x, TYPE_INSET);
-  const right = Math.min(box.x + box.w, C - TYPE_INSET);
+  const x = Math.max(box.x, H_INSET);
+  const right = Math.min(box.x + box.w, C - H_INSET);
   return { ...box, x: px(x), w: px(Math.max(0, right - x)) };
 }
+
+// Full ink, cap height about 2 mm. The old eyebrows were ~17 px at 45 to 60%
+// ink, which ZINK prints as a scratch. Terminal's prompt stays paper white.
+const EYEBROW_H = px(Math.round(C * 0.052));
 
 /** Small fixed label. Mono, tracked out. Always inside the print band. */
 function eyebrow(text, box, { fill, align = 'left', tracking = 0.2, size } = {}) {
@@ -95,7 +99,7 @@ const TERM_GRID_STROKE = px(Math.max(2, C * 0.0036));
 // Prompt, then the line, both inside the print band. The old line ran to
 // SAFE_INSET on the right, which is the edge this roll cuts.
 const TERM_PROMPT_W = px(C * 0.09);
-const TERM_TEXT_X = px(TYPE_INSET + TERM_PROMPT_W + C * 0.02);
+const TERM_TEXT_X = px(H_INSET + TERM_PROMPT_W + C * 0.02);
 
 /** Graph paper. `strokeWidth` is in canvas pixels. */
 const gridBg = (stroke, opacity, strokeWidth) => {
@@ -164,8 +168,8 @@ export const TEMPLATES = [
               fill="none" stroke="${P.ink}" stroke-width="${stroke}"/>`;
     },
     above: () => eyebrow('SHIP IT', {
-      x: FRAME.x, y: px(FRAME.y + C * 0.028), w: FRAME.w, h: px(C * 0.026),
-    }, { fill: P.ink60, align: 'center', tracking: 0.24 }),
+      x: FRAME.x, y: px(FRAME.y + C * 0.04), w: FRAME.w, h: EYEBROW_H,
+    }, { fill: P.ink, align: 'center', tracking: 0.12 }),
   },
 
   {
@@ -186,8 +190,8 @@ export const TEMPLATES = [
       <path d="M ${SAFE.x} ${px(C * 0.175)} H ${px(C - SAFE.x)}" stroke="${HAIR_INK}" stroke-width="${HAIR}"/>
       <path d="M ${SAFE.x} ${px(C * 0.735)} H ${px(C - SAFE.x)}" stroke="${HAIR_INK}" stroke-width="${HAIR}"/>`,
     above: () => eyebrow('PRODUCTCON SF · SHIPPED LIVE', {
-      x: SAFE.x, y: px(C * 0.118), w: SAFE.w, h: px(C * 0.028),
-    }, { fill: P.ink60, align: 'left', tracking: 0.16 }),
+      x: H_INSET, y: px(SAFE_INSET + SPECTRUM + C * 0.012), w: C - H_INSET * 2, h: EYEBROW_H,
+    }, { fill: P.ink, align: 'left', tracking: 0.02 }),
   },
 
   {
@@ -196,7 +200,7 @@ export const TEMPLATES = [
     description: 'Mono on ink. The one dark exception.',
     textBox: {
       x: TERM_TEXT_X, y: px(C * 0.20),
-      w: px(C - TYPE_INSET - TERM_TEXT_X), h: px(C * 0.50),
+      w: px(C - H_INSET - TERM_TEXT_X), h: px(C * 0.50),
     },
     textStyle: {
       face: 'mono', weight: 500, tracking: -0.01, lineHeight: 1.25,
@@ -209,7 +213,7 @@ export const TEMPLATES = [
       <rect width="${C}" height="${C}" fill="${P.ink}"/>
       ${gridBg(P.paper, TERM_GRID_OPACITY, TERM_GRID_STROKE)}
       <rect x="0" y="0" width="${C}" height="${px(SAFE_INSET + SPECTRUM)}" fill="url(#term-spectrum)"/>
-      ${eyebrow('>', { x: TYPE_INSET, y: px(C * 0.205), w: TERM_PROMPT_W, h: px(C * 0.055) },
+      ${eyebrow('>', { x: H_INSET, y: px(C * 0.205), w: TERM_PROMPT_W, h: px(C * 0.055) },
                 { fill: P.paper, align: 'left', tracking: 0, size: px(C * 0.055) })}`,
   },
 
@@ -230,8 +234,8 @@ export const TEMPLATES = [
       <rect width="${C}" height="${C}" fill="${P.paper}"/>
       <rect x="${SAFE.x}" y="${RULE_BAR_Y}" width="${SAFE.w}" height="${SPECTRUM}" fill="url(#rule-spectrum)"/>`,
     above: () => eyebrow('PRODUCTCON SF', {
-      x: SAFE.x, y: px(C * 0.075), w: SAFE.w, h: px(C * 0.028),
-    }, { fill: P.ink45, align: 'left', tracking: 0.24 }),
+      x: H_INSET, y: SAFE_INSET, w: C - H_INSET * 2, h: EYEBROW_H,
+    }, { fill: P.ink, align: 'left', tracking: 0.08 }),
   },
 ];
 

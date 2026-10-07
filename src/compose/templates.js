@@ -8,18 +8,28 @@
 // The lockup is added by the compositor afterwards, from a fixed slot no
 // template may write into.
 
-import { CANVAS as C, SAFE, SAFE_INSET } from './constants.js';
+import { CANVAS as C, SAFE, SAFE_INSET, TYPE_INSET } from './constants.js';
 import { PALETTE as P, spectrumDef, warmDef, lockupSvg, LOCKUP } from './brand.js';
 import { fitText, textToSvg } from './typeset.js';
 
 const px = (n) => Number(n.toFixed(2));
 
-/** Small fixed label. Mono, tracked out. */
+// Pull a box inside the horizontal print band. Vertical placement stays put.
+// A box that is already inside is unchanged, so the frame's type, which is
+// inset by the square itself, does not get a second margin.
+function clampX(box) {
+  const x = Math.max(box.x, TYPE_INSET);
+  const right = Math.min(box.x + box.w, C - TYPE_INSET);
+  return { ...box, x: px(x), w: px(Math.max(0, right - x)) };
+}
+
+/** Small fixed label. Mono, tracked out. Always inside the print band. */
 function eyebrow(text, box, { fill, align = 'left', tracking = 0.2, size } = {}) {
+  const safe = clampX(box);
   return textToSvg(
-    fitText(text, box, {
+    fitText(text, safe, {
       face: 'mono', weight: 500, tracking, align, vAlign: 'middle',
-      maxFontSize: size ?? box.h, minFontSize: 8, step: 1,
+      maxFontSize: size ?? safe.h, minFontSize: 8, step: 1,
     }),
     { fill }
   );
@@ -50,7 +60,7 @@ const lockupTop = C - LOCKUP.bottom - LOCKUP.h;
 const RULE_BAR_Y = px(lockupTop - RULE_BAR_GAP - SPECTRUM);
 const RULE_CLEAR = Math.round(SPECTRUM + RULE_BAR_GAP + C * 0.02);
 
-const TEXT_AREA = { x: SAFE.x, y: SAFE.y, w: SAFE.w, h: SAFE.h - LOCKUP_BAND };
+const TEXT_AREA = clampX({ x: SAFE.x, y: SAFE.y, w: SAFE.w, h: SAFE.h - LOCKUP_BAND });
 
 // Card outline and the ticket rules. A 2px stroke at 28% ink is a few RGB
 // steps on a phone and ZINK drops it, the same failure as the old Terminal
@@ -82,6 +92,10 @@ const CARD = (() => {
 // ground, and the printer drops it.
 const TERM_GRID_OPACITY = 0.48;
 const TERM_GRID_STROKE = px(Math.max(2, C * 0.0036));
+// Prompt, then the line, both inside the print band. The old line ran to
+// SAFE_INSET on the right, which is the edge this roll cuts.
+const TERM_PROMPT_W = px(C * 0.09);
+const TERM_TEXT_X = px(TYPE_INSET + TERM_PROMPT_W + C * 0.02);
 
 /** Graph paper. `strokeWidth` is in canvas pixels. */
 const gridBg = (stroke, opacity, strokeWidth) => {
@@ -111,10 +125,10 @@ export const TEMPLATES = [
     id: 'bubble',
     name: 'Card',
     description: 'Hairline card on paper, spectrum edge. Reads as something said.',
-    textBox: {
+    textBox: clampX({
       x: CARD.x + px(C * 0.05), y: CARD.y + px(C * 0.045),
       w: CARD.w - px(C * 0.10), h: CARD.h - px(C * 0.09) - SPECTRUM,
-    },
+    }),
     textStyle: { weight: 500, tracking: -0.02, lineHeight: 1.08, maxFontSize: 104, minFontSize: 34 },
     textFill: P.ink,
     lockup: { variant: 'color', align: 'left' },
@@ -135,10 +149,10 @@ export const TEMPLATES = [
     id: 'roundel',
     name: 'Frame',
     description: 'Square ink frame on paper. Holds short lines best.',
-    textBox: {
+    textBox: clampX({
       x: FRAME.x + px(C * 0.07), y: FRAME.y + px(C * 0.10),
       w: FRAME.w - px(C * 0.14), h: FRAME.h - px(C * 0.18),
-    },
+    }),
     textStyle: { weight: 500, tracking: -0.02, lineHeight: 1.02, maxFontSize: 86, minFontSize: 26 },
     textFill: P.ink,
     lockup: { variant: 'color', align: 'left' },
@@ -158,10 +172,10 @@ export const TEMPLATES = [
     id: 'ticket',
     name: 'Ticket',
     description: 'Hairline rules on paper. Quietest of the six.',
-    textBox: {
+    textBox: clampX({
       x: SAFE.x + px(C * 0.03), y: px(C * 0.20),
       w: SAFE.w - px(C * 0.06), h: px(C * 0.50),
-    },
+    }),
     textStyle: { weight: 500, tracking: -0.02, lineHeight: 1.1, maxFontSize: 92, minFontSize: 32 },
     textFill: P.ink,
     lockup: { variant: 'color', align: 'left' },
@@ -181,8 +195,8 @@ export const TEMPLATES = [
     name: 'Terminal',
     description: 'Mono on ink. The one dark exception.',
     textBox: {
-      x: px(C * 0.155), y: px(C * 0.20),
-      w: px(C - C * 0.155 - SAFE_INSET), h: px(C * 0.50),
+      x: TERM_TEXT_X, y: px(C * 0.20),
+      w: px(C - TYPE_INSET - TERM_TEXT_X), h: px(C * 0.50),
     },
     textStyle: {
       face: 'mono', weight: 500, tracking: -0.01, lineHeight: 1.25,
@@ -195,7 +209,7 @@ export const TEMPLATES = [
       <rect width="${C}" height="${C}" fill="${P.ink}"/>
       ${gridBg(P.paper, TERM_GRID_OPACITY, TERM_GRID_STROKE)}
       <rect x="0" y="0" width="${C}" height="${px(SAFE_INSET + SPECTRUM)}" fill="url(#term-spectrum)"/>
-      ${eyebrow('>', { x: SAFE.x, y: px(C * 0.205), w: px(C * 0.09), h: px(C * 0.055) },
+      ${eyebrow('>', { x: TYPE_INSET, y: px(C * 0.205), w: TERM_PROMPT_W, h: px(C * 0.055) },
                 { fill: P.paper, align: 'left', tracking: 0, size: px(C * 0.055) })}`,
   },
 
@@ -206,7 +220,7 @@ export const TEMPLATES = [
     textBox: (() => {
       const y = px(C * 0.135);
       const maxBottom = C - SAFE_INSET - LOCKUP.h - RULE_CLEAR;
-      return { x: SAFE.x, y, w: SAFE.w, h: Math.min(px(C * 0.62), px(maxBottom - y)) };
+      return clampX({ x: SAFE.x, y, w: SAFE.w, h: Math.min(px(C * 0.62), px(maxBottom - y)) });
     })(),
     textStyle: { weight: 500, tracking: -0.03, lineHeight: 1.02, maxFontSize: 116, minFontSize: 34 },
     textFill: P.ink,

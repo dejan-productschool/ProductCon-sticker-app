@@ -16,7 +16,10 @@ export const mmToPx = (mm) => Math.round((mm / MM_PER_INCH) * DPI);
 export const CANVAS = mmToPx(STICKER_MM); // 616
 
 // ZINK edge registration drifts a little roll to roll. Artwork bleeds to the
-// edge, but nothing that carries meaning may sit outside this box.
+// edge, but nothing that carries meaning may sit outside this box. The
+// lockup wordmark needs more than this on the right: twice this inset still
+// lost the final L on the VC-500W. That extra air is LOCKUP_RIGHT_INSET in
+// brand.js, so the other template shapes stay on this line.
 export const SAFE_INSET = Math.round(CANVAS * 0.06); // 37 px
 export const SAFE = {
   x: SAFE_INSET,

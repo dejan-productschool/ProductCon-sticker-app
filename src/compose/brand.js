@@ -11,7 +11,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { CANVAS, SAFE_INSET } from './constants.js';
+import { CANVAS, SAFE_INSET, mmToPx } from './constants.js';
 import { fitText, textToSvg } from './typeset.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -93,16 +93,21 @@ const lockups = Object.fromEntries(
 
 const metricsSource = lockups.color || lockups.dark || lockups.black || lockups.white;
 
-// Target height. The previous shield sat near 21px; this is the larger slot.
-// The new lockup is wider, so 90px tall runs past the safe area on the right.
-// Width is capped and the height follows, same on every template.
+// Target height. The previous shield sat near 21px; this is the ceiling.
+// The lockup is wider than the slot, so the right inset below is what sizes
+// it. Height follows the width cap, and every template uses this same slot.
 const LOCKUP_TARGET_H = 90;
 
-// Right inset is twice the usual safe inset. The slot used to end on the
-// single 3 mm line. On the VC-500W a white sticker came back with the last
-// letter cut off ("Product Schoo") while the next sticker on the roll still
-// showed the L. The extra air is that drift, on every template.
-const LOCKUP_RIGHT_INSET = SAFE_INSET * 2;
+// Air to the right of the wordmark. The final L is flush with the SVG
+// viewBox, so this inset is the only paper between "School" and the cut.
+//
+// SAFE_INSET is 3 mm. Twice that (6 mm, 74 px) still came back from the
+// VC-500W as "Product Schoo": on this roll the right cut sits just past
+// 6 mm, and it wanders by about a letter from sticker to sticker. 10 mm
+// leaves about 3 mm of paper past that cut, the same budget the rest of
+// the sticker already keeps, stacked on the drift that already ate the L.
+// The width cap then pulls the height from about 81 px down to about 73 px.
+const LOCKUP_RIGHT_INSET = mmToPx(10);
 
 function lockupSlot(vbW, vbH) {
   const maxW = CANVAS - SAFE_INSET - LOCKUP_RIGHT_INSET;

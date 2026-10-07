@@ -95,11 +95,17 @@ const metricsSource = lockups.color || lockups.dark || lockups.black || lockups.
 
 // Target height. The previous shield sat near 21px; this is the larger slot.
 // The new lockup is wider, so 90px tall runs past the safe area on the right.
-// Width is capped to the safe box and the height follows, same on every template.
+// Width is capped and the height follows, same on every template.
 const LOCKUP_TARGET_H = 90;
 
+// Right inset is twice the usual safe inset. The slot used to end on the
+// single 3 mm line. On the VC-500W a white sticker came back with the last
+// letter cut off ("Product Schoo") while the next sticker on the roll still
+// showed the L. The extra air is that drift, on every template.
+const LOCKUP_RIGHT_INSET = SAFE_INSET * 2;
+
 function lockupSlot(vbW, vbH) {
-  const maxW = CANVAS - SAFE_INSET * 2;
+  const maxW = CANVAS - SAFE_INSET - LOCKUP_RIGHT_INSET;
   const aspect = vbW / vbH;
   let h = LOCKUP_TARGET_H;
   let w = h * aspect;
@@ -109,12 +115,22 @@ function lockupSlot(vbW, vbH) {
   }
   h = Number(h.toFixed(2));
   w = Number((h * aspect).toFixed(2));
-  return { h, w, x: SAFE_INSET, bottom: SAFE_INSET, targetH: LOCKUP_TARGET_H };
+  return {
+    h, w, x: SAFE_INSET, bottom: SAFE_INSET,
+    right: LOCKUP_RIGHT_INSET, targetH: LOCKUP_TARGET_H,
+  };
 }
 
 export const LOCKUP = metricsSource
   ? lockupSlot(metricsSource.vbW, metricsSource.vbH)
-  : { h: LOCKUP_TARGET_H, w: CANVAS - SAFE_INSET * 2, x: SAFE_INSET, bottom: SAFE_INSET, targetH: LOCKUP_TARGET_H };
+  : {
+      h: LOCKUP_TARGET_H,
+      w: CANVAS - SAFE_INSET - LOCKUP_RIGHT_INSET,
+      x: SAFE_INSET,
+      bottom: SAFE_INSET,
+      right: LOCKUP_RIGHT_INSET,
+      targetH: LOCKUP_TARGET_H,
+    };
 
 function stops(stops) {
   return stops.map((s, i, a) => {
@@ -151,7 +167,7 @@ export function lockupSvg({ variant = 'color', align = 'left', fill = PALETTE.in
   if (asset) {
     const scale = LOCKUP.h / asset.vbH;
     const w = asset.vbW * scale;
-    const x = align === 'right' ? CANVAS - SAFE_INSET - w : LOCKUP.x;
+    const x = align === 'right' ? CANVAS - LOCKUP.right - w : LOCKUP.x;
     const y = CANVAS - LOCKUP.bottom - LOCKUP.h;
     return `<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${scale.toFixed(6)})">${asset.inner}</g>`;
   }

@@ -60,14 +60,21 @@ const CARD = (() => {
   return { x: inset, y, w: C - inset * 2, h };
 })();
 
-/** The faint graph paper, ink at 12%. */
-const gridBg = (stroke = P.ink, opacity = 0.12) => {
+// Terminal graph paper. White on ink, and heavy enough to read when the
+// canvas is drawn at phone size and when ZINK prints it. A 1px stroke at
+// 12% opacity did neither: on a phone it is a few RGB steps above the
+// ground, and the printer drops it.
+const TERM_GRID_OPACITY = 0.48;
+const TERM_GRID_STROKE = px(Math.max(2, C * 0.0036));
+
+/** Graph paper. `strokeWidth` is in canvas pixels. */
+const gridBg = (stroke, opacity, strokeWidth) => {
   const step = px(C / 7);
   const lines = [];
   for (let i = step; i < C; i += step) {
     lines.push(`<path d="M ${px(i)} 0 V ${C}"/><path d="M 0 ${px(i)} H ${C}"/>`);
   }
-  return `<g stroke="${stroke}" stroke-width="1" opacity="${opacity}">${lines.join('')}</g>`;
+  return `<g stroke="${stroke}" stroke-width="${strokeWidth}" opacity="${opacity}">${lines.join('')}</g>`;
 };
 
 export const TEMPLATES = [
@@ -167,7 +174,7 @@ export const TEMPLATES = [
     behind: () => `
       <defs>${spectrumDef('term-spectrum')}</defs>
       <rect width="${C}" height="${C}" fill="${P.ink}"/>
-      ${gridBg(P.paper, 0.12)}
+      ${gridBg(P.paper, TERM_GRID_OPACITY, TERM_GRID_STROKE)}
       <rect x="0" y="0" width="${C}" height="${RULE}" fill="url(#term-spectrum)"/>
       ${eyebrow('>', { x: SAFE.x, y: px(C * 0.205), w: px(C * 0.09), h: px(C * 0.055) },
                 { fill: P.paper, align: 'left', tracking: 0, size: px(C * 0.055) })}`,

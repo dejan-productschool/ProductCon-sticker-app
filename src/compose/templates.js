@@ -26,31 +26,47 @@ function eyebrow(text, box, { fill, align = 'left', tracking = 0.2, size } = {})
 }
 
 // Room reserved at the bottom of every template for the lockup, so text and
-// the card/frame never meet it.
+// the card never meet it.
 //
-// The card and the frame end at `C - LOCKUP_BAND - FRAME_TAIL`. That edge
-// has to sit LOCKUP_CLEAR above the artwork. A full 1× mark-height exclusion
-// zone does not fit on a 50 mm square once the lockup is this wide, so the
-// gap is the air that keeps type and frames off the mark.
+// The card ends at `C - LOCKUP_BAND - FRAME_TAIL`, which sits LOCKUP_CLEAR
+// above the artwork. A full 1× mark-height exclusion zone does not fit on a
+// 50 mm square once the lockup is this wide, so the gap is the air that keeps
+// type and the card off the mark. The frame is a square in that same band.
 const LOCKUP_CLEAR = 24;
 const FRAME_TAIL = SAFE_INSET * 0.35;
 const LOCKUP_BAND = Math.ceil(LOCKUP.h + LOCKUP_CLEAR + (SAFE_INSET - FRAME_TAIL));
-// Air kept under the Rule template's type. Its box does not sit inside the
-// frame, so without this cap a large centred line's descenders meet the mark.
-const RULE_CLEAR = Math.round(C * 0.058);
+// Spectrum colour has to sit inside the safe box. SAFE_INSET is the VC-500W
+// drift zone. A bar drawn only in that strip is cut off, so the sticker
+// prints as white paper. On a phone the same 8px bar is about two CSS pixels
+// at the image edge, so the preview looks all white and there is no colour
+// to pick. ~1.8 mm still reads once the preview is drawn at phone size.
+const SPECTRUM = Math.max(22, Math.round(C * 0.036));
+
+// The Rule bar sits just above the lockup, inside the safe box. The old bar
+// started at 95.5% of the canvas, which is entirely below the safe line, so
+// the cutter took the only colour. Air above the bar keeps descenders off it.
+const RULE_BAR_GAP = 14;
+const lockupTop = C - LOCKUP.bottom - LOCKUP.h;
+const RULE_BAR_Y = px(lockupTop - RULE_BAR_GAP - SPECTRUM);
+const RULE_CLEAR = Math.round(SPECTRUM + RULE_BAR_GAP + C * 0.02);
 
 const TEXT_AREA = { x: SAFE.x, y: SAFE.y, w: SAFE.w, h: SAFE.h - LOCKUP_BAND };
 
-// Hairline and the spectrum rule, scaled so they still read on 50 mm ZINK.
-const HAIR = Math.max(1, Math.round(C * 0.0025));
-const RULE = Math.max(4, Math.round(C * 0.013));
+// Card outline and the ticket rules. A 2px stroke at 28% ink is a few RGB
+// steps on a phone and ZINK drops it, the same failure as the old Terminal
+// grid, so those templates had no shape.
+const HAIR = px(Math.max(4, C * 0.0065));
+const HAIR_INK = P.ink80;
 
+// Square, not the safe-width rectangle. The wide lockup eats the bottom of
+// the canvas, and stretching the frame across the full safe width made a
+// 542×430 slab. The side is whatever still fits above the mark.
 const FRAME = (() => {
-  const inset = SAFE_INSET;
   const stroke = px(C * 0.008);
-  const y = inset;
-  const h = px(C - inset - LOCKUP_BAND - FRAME_TAIL);
-  return { x: inset, y, w: C - inset * 2, h, stroke };
+  const top = SAFE_INSET;
+  const bottom = lockupTop - LOCKUP_CLEAR;
+  const side = px(Math.min(C - SAFE_INSET * 2, bottom - top));
+  return { x: px((C - side) / 2), y: px(top), w: side, h: side, stroke };
 })();
 
 const CARD = (() => {
@@ -97,18 +113,21 @@ export const TEMPLATES = [
     description: 'Hairline card on paper, spectrum edge. Reads as something said.',
     textBox: {
       x: CARD.x + px(C * 0.05), y: CARD.y + px(C * 0.045),
-      w: CARD.w - px(C * 0.10), h: CARD.h - px(C * 0.09) - RULE,
+      w: CARD.w - px(C * 0.10), h: CARD.h - px(C * 0.09) - SPECTRUM,
     },
     textStyle: { weight: 500, tracking: -0.02, lineHeight: 1.08, maxFontSize: 104, minFontSize: 34 },
     textFill: P.ink,
     lockup: { variant: 'color', align: 'left' },
     behind: () => {
       const { x, y, w, h } = CARD;
+      const s = HAIR;
       return `
         <defs>${spectrumDef('card-spectrum')}</defs>
         <rect width="${C}" height="${C}" fill="${P.paper}"/>
-        <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${P.paper}" stroke="${P.ink28}" stroke-width="${HAIR}"/>
-        <rect x="${x}" y="${px(y + h - RULE)}" width="${w}" height="${RULE}" fill="url(#card-spectrum)"/>`;
+        <rect x="${px(x + s / 2)}" y="${px(y + s / 2)}" width="${px(w - s)}" height="${px(h - s)}"
+              fill="${P.paper}" stroke="${HAIR_INK}" stroke-width="${s}"/>
+        <rect x="${px(x + s)}" y="${px(y + h - s - SPECTRUM)}" width="${px(w - s * 2)}" height="${SPECTRUM}"
+              fill="url(#card-spectrum)"/>`;
     },
   },
 
@@ -149,9 +168,9 @@ export const TEMPLATES = [
     behind: () => `
       <defs>${spectrumDef('ticket-spectrum')}</defs>
       <rect width="${C}" height="${C}" fill="${P.paper}"/>
-      <rect x="0" y="0" width="${C}" height="${RULE}" fill="url(#ticket-spectrum)"/>
-      <path d="M ${SAFE.x} ${px(C * 0.175)} H ${px(C - SAFE.x)}" stroke="${P.ink28}" stroke-width="${HAIR}"/>
-      <path d="M ${SAFE.x} ${px(C * 0.735)} H ${px(C - SAFE.x)}" stroke="${P.ink28}" stroke-width="${HAIR}"/>`,
+      <rect x="${SAFE.x}" y="${SAFE_INSET}" width="${SAFE.w}" height="${SPECTRUM}" fill="url(#ticket-spectrum)"/>
+      <path d="M ${SAFE.x} ${px(C * 0.175)} H ${px(C - SAFE.x)}" stroke="${HAIR_INK}" stroke-width="${HAIR}"/>
+      <path d="M ${SAFE.x} ${px(C * 0.735)} H ${px(C - SAFE.x)}" stroke="${HAIR_INK}" stroke-width="${HAIR}"/>`,
     above: () => eyebrow('PRODUCTCON SF · SHIPPED LIVE', {
       x: SAFE.x, y: px(C * 0.118), w: SAFE.w, h: px(C * 0.028),
     }, { fill: P.ink60, align: 'left', tracking: 0.16 }),
@@ -175,7 +194,7 @@ export const TEMPLATES = [
       <defs>${spectrumDef('term-spectrum')}</defs>
       <rect width="${C}" height="${C}" fill="${P.ink}"/>
       ${gridBg(P.paper, TERM_GRID_OPACITY, TERM_GRID_STROKE)}
-      <rect x="0" y="0" width="${C}" height="${RULE}" fill="url(#term-spectrum)"/>
+      <rect x="0" y="0" width="${C}" height="${px(SAFE_INSET + SPECTRUM)}" fill="url(#term-spectrum)"/>
       ${eyebrow('>', { x: SAFE.x, y: px(C * 0.205), w: px(C * 0.09), h: px(C * 0.055) },
                 { fill: P.paper, align: 'left', tracking: 0, size: px(C * 0.055) })}`,
   },
@@ -195,7 +214,7 @@ export const TEMPLATES = [
     behind: () => `
       <defs>${spectrumDef('rule-spectrum')}</defs>
       <rect width="${C}" height="${C}" fill="${P.paper}"/>
-      <rect x="0" y="${px(C * 0.955)}" width="${C}" height="${px(C * 0.045)}" fill="url(#rule-spectrum)"/>`,
+      <rect x="${SAFE.x}" y="${RULE_BAR_Y}" width="${SAFE.w}" height="${SPECTRUM}" fill="url(#rule-spectrum)"/>`,
     above: () => eyebrow('PRODUCTCON SF', {
       x: SAFE.x, y: px(C * 0.075), w: SAFE.w, h: px(C * 0.028),
     }, { fill: P.ink45, align: 'left', tracking: 0.24 }),
